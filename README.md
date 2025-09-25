@@ -1,103 +1,114 @@
-# HQG Backtester Plan (V1)
+# HQG Backtester
+
+V1 Plan...
 
 Backtester inspired by LEAN.
 
 ---
 
-## What the researcher does (UX)
-
-```bash
-pip install hqg-backtester
-```
+## Interface for Researchers (Target UX)
 
 ```python
-# examples/my_algo.py
+# strategy.py
 from hqg_backtester import Algorithm
 
-class CustomAlgo(Algorithm):
-    def initialize(self):
+class MyStrategy(Algorithm):
+    def Initialize(self):
         self.set_universe(["AAPL", "MSFT"])
-        self.set_timeframe("2021-01-01", "2021-12-31")
+        self.set_timeframe("2023-01-01", "2023-12-31")
         self.set_resolution("Daily")
-        self.add_indicator("AAPL", "MACD", fast=12, slow=26, signal=9) 
-        # or self.MACD("AAPL", "MACD_9" fast=12, slow=26, signal=9)
+        self.add_indicator("AAPL", "MACD", "MACD_9" fast=12, slow=26, signal=9)
 
     def OnData(self, data):
-        # data["AAPL"].close, data["AAPL"].MACD_9, 
-        # or data["AAPL"].Indicators["MACD"].value) -- can iterate & make less verbose
-        if data["AAPL"].indicators["MACD"].value > 0:
-            self.buy("AAPL", 10)
+        if data["AAPL"]["MACD_9"] > 0:
+            self.buy("AAPL", 100)
         else:
-            self.sell("AAPL", 10)
+            self.liquidate()
 
 if __name__ == "__main__":
-    CustomAlgo().Backtest()
+    MyStrategy.backtest()
 ```
 
-**Outputs:** `runs/<timestamp>/{equity.csv, trades.csv, positions.csv, equity.png, drawdown.png, run.json, etc.}`
+**Requirements:**
 
-Note that the Researchers will need:
-*  .env file to have shared IBKR API key & hqg_backtester usage key (ie, abc123)
-* IBKR Gateway running locally (or in server, later on)
+* Interactive Brokers Gateway running locally
+* `.env` file with IBKR API credentials
+* Python 3.7+
+
+**Outputs:** Results will be saved in a timestamped directory containing:
+
+* Performance metrics (equity curve, positions, trades)
+* Data visualizations
+* Execution metadata
 
 ---
 
-## Essentials we enforce in V1
+## Principles
 
-- **No lookahead:** Orders placed in `OnData` fill at **next bar open**.
-- **Warmup:** `OnData` runs only after indicators have enough history.
-- **Only market orders:** `buy`, `sell`, `liquidate` (all or per symbol).
-- **Fees:** Flat per order (e.g., $0.02).
-- **Portfolio:** Cash, positions, equity tracked each bar.
-- **Data provider decoupled:** Start with CSV; IBKR fetch behind one interface.
-- **Usage key & secrets:** Require `HQG_USAGE_KEY` and IBKR creds in `.env`.
+* **No Lookahead Bias:** Orders placed in `OnData` fill at next bar's open price
+* **Market Orders Only:** Simple `buy`, `sell`, and `liquidate` operations
+* **Transaction Costs:** Simplified configurable flat fee per trade
+* **Portfolio Tracking:** Cash, positions, and equity tracked each bar
+* **Data Provider Interface:** Modular design starting with CSV and IBKR support
+* **Indicator Warmup:** Trading begins only after indicators have sufficient history
 
 ---
 
-## File structure
+## Project Structure
 
-```
+```text
 hqg-backtester/
-  hqg_backtester/
-    __init__.py
-    algorithm.py        # Base Algorithm (user inherits); Algorithm.Backtest()
+    algorithm.py        # Base Algorithm class for strategy implementation
     engine/
-      backtest.py       # Orchestrates init → loop → report
-      broker.py         # Order queue, next-bar-open fills, fees
-      portfolio.py      # Cash/positions/equity/PnL
-      reporter.py       # Write CSVs + simple matplotlib plots
-      clock.py          # Bar iterator, warmup gating
+        backtest.py     # Main backtesting engine
+        broker.py       # Order execution and fee simulation
+        portfolio.py    # Position and P&L tracking
+        reporter.py     # Performance reporting and visualization
+        clock.py        # Time management and bar iteration
+        metrics.py      # Performance metrics calculation
     data/
-      schema.py         # Bar model: timestamp,symbol,open,high,low,close,volume
-      provider_base.py  # get_bars(symbols, start, end, resolution)
-      provider_csv.py   # CSV provider (default)
-      provider_ibkr.py  # IBKR provider (fetch → CSV)
-      indicators.py     # SMA, EMA, MACD (minimal)
-    security/
-      license_check.py  # Validate HQG_USAGE_KEY
-      secrets.py        # Load .env (IBKR + others)
+        schema.py       # Market data schemas and validation
+        indicators.py   # Technical indicator implementations
+        providers/
+            base.py     # Abstract data provider interface
+            csv.py      # CSV data source implementation
+            ibkr.py     # Interactive Brokers integration
     config/
-      defaults.yaml     # env overrides allowed
-  examples/
-  tests/
-  pyproject.toml
-  README.md
+        loader.py       # Configuration management
+    tests/
+        fixtures/       # Test data files
+        live/          # Live trading system tests
+        smoke/         # End-to-end integration tests
+        unit/          # Unit test suite
 ```
 
 ---
 
-## How it runs (engine flow)
+## Execution Flow
 
-1) **Gate:** `license_check` verifies `HQG_USAGE_KEY`.  
-2) **Secrets:** load `.env` (IBKR creds).  
-3) **Init:** algorithm `initialize()` → symbols, dates, indicators.  
-4) **Data:** provider builds a **master CSV** per symbol (canonical schema).  
-5) **Warmup:** indicators are calculated & added to CSVs; no `OnData` until ready.  
-6) **Loop:** for each bar  
-   - Snapshot prior state → `OnData(data_snapshot)`  
-   - Queue orders → **fill next bar open**  
-   - Apply fees → update portfolio → log  
-7) **Report:** write CSVs, basic plots, and a `run.json` manifest.
+1. **Configuration**
+   * Load IBKR credentials from `.env`
+   * Initialize algorithm instance
+   * Set universe, timeframe, and indicators
+
+2. **Data Preparation**
+   * Fetch historical data through provider interface
+   * Calculate technical indicators
+   * Ensure sufficient warmup period
+
+3. **Backtest Execution**
+   * For each trading day:
+      * Update portfolio state
+      * Execute `OnData` with current bar data
+      * Process orders at next bar's open price
+      * Apply transaction costs
+      * Log positions and performance
+
+4. **Results Generation**
+   * Calculate performance metrics
+   * Generate trade log and statistics
+   * Create visualization plots
+   * Export execution metadata
 
 ---
 
@@ -148,39 +159,29 @@ self.liquidate(symbol: str | None = None)
 ```python
 data = {
   "AAPL": {
-    "bar": Bar(ts, open, high, low, close, volume),
-    "indicators": {"MACD": Indicator(value=..., ready=True), ...}
-  },
-  ...
-}
+    "open": float, "high": float, "low": float, "close": float, "volume": float,
+    "SMA20": float, "EMA50": float, "MACD": float, ...
+          },
+  "MSFT": {...},
+    ...
+        }
 ```
 
 ---
 
-## Outputs (V1)
+## Output Files
 
-- `equity.csv` – timestamp, equity  
-- `trades.csv` – ts, symbol, side, qty, fill_price, fee, cash_after, equity_after  
-- `positions.csv` – ts, symbol, qty, avg_price  
-- `equity.png` – equity curve  
-- `drawdown.png` – drawdown curve  
-- `run.json` – symbols, dates, provider, commit hash (if available), config hash
-- Etc.
+Each backtest run generates a timestamped directory containing:
 
----
+* `equity.csv` - Portfolio value history
+* `trades.csv` - Detailed trade execution log
+* `positions.csv` - Daily position snapshots
+* `equity.png` - Performance visualization
+* `metadata.json` - Run configuration and execution details
 
-## Quick start (dev)
+## V1 Success Criteria
 
-```bash
-# clone repo, then:
-pip install -e .
-python examples/example_algo_macd.py
-```
-
----
-
-## V1 success criteria
-
-- Deterministic outputs on repeated runs (same inputs → same CSV hashes).  
-- No lookahead leakage (orders filled only on next bar open).  
-- Produces the 3 CSVs + 2 PNGs + run.json.  
+* Reproducible results (deterministic execution)
+* No look-ahead bias in order execution
+* Complete trade and performance logging
+* Comprehensive test coverage
