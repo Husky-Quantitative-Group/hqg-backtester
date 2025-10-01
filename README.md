@@ -148,8 +148,7 @@ data:
   end_date: "2023-12-31"
   symbols: ["AAPL", "GOOGL", "MSFT"]
   timeframe: "1d"
-  
-initial_cash: 100000
+
 commission: 0.001
 
 risk_management:
@@ -166,11 +165,9 @@ output:
   results_dir: "results"
   plot_equity_curve: true
   save_trades: true
-  
-benchmark:
-  symbol: "SPY"
-  include_in_analysis: true
 ```
+
+**Note:** Initial cash is now specified in your strategy's `Initialize()` method using `self.SetCash(amount)`, not in the config file. Benchmark comparison is specified when calling `run(YourStrategy, benchmark="SPY")` in your strategy's `main.py`.
 
 ## API Reference
 

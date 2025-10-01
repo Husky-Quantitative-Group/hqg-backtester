@@ -24,22 +24,16 @@ class BacktestConfig:
             'backtest': {
                 'start_date': '2020-01-01',
                 'end_date': '2023-12-31',
-                'initial_cash': 100_000.0,
                 'commission_rate': 0.005,
                 'data_path': './data',
                 'log_level': 'INFO',
             },
             'data': {
                 'resolution': 'daily',
-                'include_benchmark': True,
-                'benchmark_symbol': 'SPY',
-                'auto_pull_missing': True,
             },
             'execution': {
                 'broker_type': 'ib',
                 'fill_model': 'market',
-                'slippage_bps': 0,  # Not implemented yet
-                'market_impact_bps': 0,  # Not implemented yet
             },
             'risk_management': {
                 'max_position_size': 0.1,  # 10% of portfolio
@@ -135,11 +129,6 @@ class BacktestConfig:
         except ValueError as e:
             errors.append(f"Invalid date format: {e}")
         
-        # Validate initial cash
-        initial_cash = self.get('backtest.initial_cash')
-        if initial_cash <= 0:
-            errors.append("Initial cash must be positive")
-        
         # Validate commission rate
         commission_rate = self.get('backtest.commission_rate')
         if commission_rate < 0:
@@ -172,10 +161,6 @@ class BacktestConfig:
     def get_end_date(self) -> datetime:
         """Get end date as datetime object."""
         return datetime.strptime(self.get('backtest.end_date'), '%Y-%m-%d')
-
-    def get_initial_cash(self) -> float:
-        """Get initial cash amount."""
-        return float(self.get('backtest.initial_cash'))
 
     def get_commission_rate(self) -> float:
         """Get commission rate."""
@@ -262,7 +247,6 @@ class BacktestConfig:
         summary.append("=== BACKTEST CONFIGURATION ===")
         summary.append(f"Start Date: {self.get('backtest.start_date')}")
         summary.append(f"End Date: {self.get('backtest.end_date')}")
-        summary.append(f"Initial Cash: ${self.get('backtest.initial_cash'):,.2f}")
         summary.append(f"Commission Rate: ${self.get('backtest.commission_rate'):.3f} per share")
         summary.append(f"Data Path: {self.get('backtest.data_path')}")
         summary.append(f"Symbols: {', '.join(self.get_symbols())}")
@@ -290,7 +274,6 @@ def create_sample_config(output_path: Union[str, Path]) -> None:
     # Add some sample values
     sample_config.set('backtest.start_date', '2020-01-01')
     sample_config.set('backtest.end_date', '2023-12-31')
-    sample_config.set('backtest.initial_cash', 100000)
     sample_config.set('backtest.symbols', ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA'])
     sample_config.set('backtest.commission_rate', 0.005)
     sample_config.set('backtest.data_path', './data')
