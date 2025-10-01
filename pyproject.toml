@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hqg-backtester"
+version = "0.1.0"
+requires-python=">=3.10"
+description = "A QuantConnect-style backtesting system for quantitative research"
+authors = [
+    {name = "Husky Quantitative Group", email = "dev@huskyquant.com"},
+]
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "pyarrow>=12.0.0",
+    "pyyaml>=6.0",
+    "ib_insync>=0.9.86",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "scipy>=1.11.0",
+    "yfinance>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Husky-Quantitative-Group/hqg-backtester"
+Repository = "https://github.com/Husky-Quantitative-Group/hqg-backtester"
+Documentation = "https://hqg-backtester.readthedocs.io/"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "I", "N", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+disallow_untyped_defs = true

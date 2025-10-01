@@ -1,0 +1,9 @@
+owner: "Shium Mashud"
+version: "1.0"
+strategy_name: "Simple Momentum Strategy"
+symbols:
+  - "AAPL"
+  - "GOOGL"
+mode: "backtrade"  # Options: backtrade, paper, live
+start_date: "2023-01-01"
+end_date: "2023-12-31"
