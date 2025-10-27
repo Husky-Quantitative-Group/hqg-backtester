@@ -8,7 +8,7 @@ This README is a concise reference for how to run the project, where the pieces 
 
 - Initial cash is set in the strategy's `Initialize()` (use `self.SetCash(...)`).
 - Benchmarks are specified in the strategy entrypoint via `run(MyStrategy, benchmark="SPY")`.
-- Data is stored locally as per-symbol Parquet files under `data/daily/` with a manifest at `data/metadata/manifest.json`.
+- Data is stored locally in a DuckDB database at `db/market_data.db` for fast querying and analysis.
 
 ## Quick start (recommended)
 
@@ -88,7 +88,7 @@ If you add new features, add unit tests under `tests/` and run the suite before 
 
 ## Developer notes & TODOs
 
-- Storage: per-symbol Parquet files live in `data/daily/` and are managed by `data/storage.py`.
+- Storage: Market data is stored in DuckDB at `db/market_data.db` and managed by `data/database.py`.
 - Data sources: primary IBKR (requires credentials) with a yfinance fallback for convenience.
 - Metrics: `analysis/metrics.py` includes Sharpe, Drawdown, alpha, beta, trade metrics and an informative summary that separates closed trades from open positions.
 - Runner: `hqg_strategies/.../runner.py` is the researcher-friendly entrypoint; strategies should rely on it rather than calling internals.
@@ -104,3 +104,11 @@ If you add new features, add unit tests under `tests/` and run the suite before 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Disclaimer
+
+This software is provided for educational and research purposes only. It is not intended for use in live trading or as financial advice. Use at your own risk.
+
+## Contact
+
+For questions or collaboration, contact the Husky Quantitative Group at [your contact email or GitHub link].

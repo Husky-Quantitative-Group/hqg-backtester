@@ -2,13 +2,14 @@
 requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
+
 [project]
-name = "hqg-backtester"
+name = "hqg"
 version = "0.1.0"
-requires-python=">=3.10"
-description = "A QuantConnect-style backtesting system for quantitative research"
+requires-python = ">=3.10"
+description = "A modular backtesting framework for quantitative strategies."
 authors = [
-    {name = "Husky Quantitative Group", email = "dev@huskyquant.com"},
+    {name = "Husky Quantitative Group", email = "contact@hqg.org"},
 ]
 dependencies = [
     "pandas>=2.0.0",
