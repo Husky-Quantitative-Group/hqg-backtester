@@ -57,10 +57,14 @@ class IBBroker(Broker):
         self._cash = float(amount)
 
     def calculate_commission(self, symbol: str, quantity: int, price: float) -> float:
-        """Calculate IB-style commission.
+        """Calculate commission based on commission rate.
         
-        US Stocks: $0.005 per share, minimum $1.00, maximum 1% of trade value
+        If commission_rate is 0, returns 0 (no fees).
+        Otherwise uses IB-style: $commission_rate per share, minimum $1.00, maximum 1% of trade value
         """
+        if self._commission_rate == 0.0:
+            return 0.0
+            
         base_commission = quantity * self._commission_rate
         min_commission = 1.00
         max_commission = 0.01 * quantity * price  # 1% of trade value
