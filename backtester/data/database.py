@@ -70,9 +70,10 @@ class Database:
         df_to_insert = df_to_insert[['symbol', 'date', 'open', 'high', 'low', 'close', 'volume']]
         
         with duckdb.connect(str(self.db_path)) as conn:
-            # Use INSERT OR REPLACE to handle duplicates
+            # Delete existing data for this symbol first, then insert
+            conn.execute("DELETE FROM daily_bars WHERE symbol = ?", [symbol])
             conn.execute("""
-                INSERT OR REPLACE INTO daily_bars 
+                INSERT INTO daily_bars 
                 SELECT * FROM df_to_insert
             """)
         
