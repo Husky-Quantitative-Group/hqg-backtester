@@ -129,7 +129,12 @@ class DataManager:
         """Ensure data is available for all symbols, downloading if needed."""
         for symbol in symbols:
             if self._needs_download(symbol, start_date, end_date):
-                self._download_symbol_data(symbol, start_date, end_date)
+                print(f"📥 Downloading {symbol} data from {start_date.date()} to {end_date.date()}...")
+                success = self._download_symbol_data(symbol, start_date, end_date)
+                if success:
+                    print(f"✅ Successfully downloaded {symbol} data")
+                else:
+                    print(f"❌ Failed to download {symbol} data")
     
     def _needs_download(
         self,
@@ -146,16 +151,23 @@ class DataManager:
         existing_data = self.storage.load_daily_data(symbol)
         
         if existing_data is None or existing_data.empty:
+            print(f"📊 {symbol}: No existing data found")
             return True
         
         existing_start = existing_data.index.min().to_pydatetime()
         existing_end = existing_data.index.max().to_pydatetime()
         
+        print(f"📊 {symbol}: Have data from {existing_start.date()} to {existing_end.date()}")
+        print(f"📊 {symbol}: Need data from {start_date.date()} to {end_date.date()}")
+        
         # Check if we have data before start_date or after end_date
         needs_earlier = existing_start > start_date
         needs_later = existing_end < end_date
         
-
+        if needs_earlier:
+            print(f"⚠️  {symbol}: Missing data before {existing_start.date()}")
+        if needs_later:
+            print(f"⚠️  {symbol}: Missing data after {existing_end.date()}")
         
         return needs_earlier or needs_later
     
@@ -171,15 +183,18 @@ class DataManager:
                 if not source.is_available():
                     continue
                 
+                print(f"  📡 Trying {source_name} for {symbol}...")
                 # Try to pull from this source
                 data = source.pull_historical_data(symbol, start_date, end_date)
                 
                 if data is not None and not data.empty:
                     # Save to database
                     self.storage.save_daily_data(symbol, data)
+                    print(f"  💾 Saved {len(data)} days of {symbol} data to database")
                     return True
                 
             except Exception as e:
+                print(f"  ⚠️  {source_name} failed for {symbol}: {str(e)}")
                 continue
         return False
     
