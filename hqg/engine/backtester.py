@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Type
@@ -30,8 +29,7 @@ class Backtester:
         self.algorithm_class = algorithm_class
         self.initial_cash = initial_cash
         
-        # Setup logging
-        self.logger = logging.getLogger(__name__)
+
         
         # Initialize components
         self.data_manager = DataManager(str(self.data_path))
@@ -49,7 +47,6 @@ class Backtester:
         """Run the backtest."""
         
         # Get data for all symbols (auto-download if needed)
-        self.logger.info(f"Getting data for {len(symbols)} symbols...")
         data_cache = self.data_manager.get_universe_data(symbols, start_date, end_date, auto_download=True)
         
         if not data_cache:
@@ -58,7 +55,7 @@ class Backtester:
         available_symbols = list(data_cache.keys())
         if len(available_symbols) < len(symbols):
             missing = set(symbols) - set(available_symbols)
-            self.logger.warning(f"Could not get data for: {missing}")
+            print(f"Warning: Could not get data for: {missing}")
         
         # Set starting cash
         self.broker.set_starting_cash(self.initial_cash)
@@ -109,10 +106,14 @@ class Backtester:
             slice_obj = Slice(bars)
             self.algorithm._current_time = timestamp
             
+            # Set current prices for percentage-based orders
+            current_prices = {symbol: float(data['close']) for symbol, data in slice_data.items()}
+            self.algorithm._current_prices = current_prices
+            
             try:
                 self.algorithm.OnData(slice_obj)
             except Exception as e:
-                self.logger.error(f"Error in algorithm at {timestamp}: {e}")
+                print(f"Error in algorithm at {timestamp}: {e}")
                 continue
             
             # Settle orders

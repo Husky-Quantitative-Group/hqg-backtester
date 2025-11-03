@@ -50,33 +50,83 @@ class Algorithm:
     def place_order(
         self,
         symbol: str,
-        quantity: int,
+        weight: float,
         is_buy: bool,
         order_type: str = "market",
         limit_price: Optional[float] = None,
+        current_price: Optional[float] = None,
     ) -> None:
-        """Submit an order via the attached broker.
+        """Submit an order via the attached broker using portfolio percentage.
 
         Args:
             symbol: Stock symbol to trade
-            quantity: Number of shares to trade
+            weight: Portfolio percentage to allocate (0.0 to 1.0)
+                   e.g., 0.25 = 25% of total portfolio value
             is_buy: True to buy, False to sell
             order_type: "market" or "limit"
             limit_price: Required for limit orders
+            current_price: Current price (optional, will be auto-detected if not provided)
+            
+        Examples:
+            self.place_order("AAPL", 0.20, is_buy=True)   # Allocate 20% to AAPL
+            self.place_order("MSFT", 0.15, is_buy=False)  # Sell 15% worth of MSFT
         """
         if self._broker is None:
             raise RuntimeError("Broker not attached")
         if order_type not in ("market", "limit"):
             raise ValueError("order_type must be 'market' or 'limit'")
+        if not 0.0 <= weight <= 1.0:
+            raise ValueError("Weight must be between 0.0 and 1.0")
+        
+        # Get current portfolio value
+        portfolio_snapshot = self._broker.snapshot()
+        total_portfolio_value = portfolio_snapshot['total_equity']
+        
+        # Calculate dollar amount to trade
+        dollar_amount = total_portfolio_value * weight
+        
+        # Get current price for the symbol
+        if current_price is None:
+            current_price = self._get_current_price(symbol)
+        
+        if current_price is None:
+            # Try to get from current data if available
+            current_price = getattr(self, '_current_prices', {}).get(symbol)
+        
+        if current_price is None:
+            raise ValueError(f"Cannot get current price for {symbol}. Please provide current_price parameter.")
+        
+        # Calculate number of shares
+        shares = int(dollar_amount / current_price)
+        
+        if shares <= 0:
+            return  # Not enough money to buy even 1 share
         
         order: Dict[str, Any] = {
             "type": order_type,
             "symbol": symbol,
-            "quantity": int(quantity),
+            "quantity": shares,
             "is_buy": bool(is_buy),
             "limit_price": float(limit_price) if limit_price is not None else None,
         }
         self._broker.submit(order)
+    
+    def _get_current_price(self, symbol: str) -> Optional[float]:
+        """Get the current price for a symbol."""
+        if self._broker is None:
+            return None
+        
+        # Try to get from broker's last prices (populated during settlement)
+        last_prices = getattr(self._broker, '_last_price', {})
+        if symbol in last_prices:
+            return last_prices[symbol]
+        
+        # Fallback: try to get from current holdings average price
+        holdings = self._broker.holdings()
+        if symbol in holdings:
+            return holdings[symbol].average_price
+        
+        return None
 
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -51,12 +50,11 @@ class IBBroker(Broker):
         self._fills: List[Dict[str, Any]] = []
         self._last_price: Dict[str, float] = {}
         self._commission_rate = commission_rate  # $0.005 per share
-        self.logger = logging.getLogger(__name__)
+
 
     # engine may call to seed starting cash
     def set_starting_cash(self, amount: float) -> None:
         self._cash = float(amount)
-        self.logger.info(f"Starting cash set to ${self._cash:,.2f}")
 
     def calculate_commission(self, symbol: str, quantity: int, price: float) -> float:
         """Calculate IB-style commission.
@@ -86,7 +84,7 @@ class IBBroker(Broker):
         self._pending.append(order)
         self._orders.append(dict(order))
         
-        self.logger.info(f"Order submitted: {order['symbol']} {order['quantity']} shares {'BUY' if order['is_buy'] else 'SELL'}")
+
 
     def settle(self, symbol: str, close_price: float, when: datetime) -> List[Dict[str, Any]]:
         """Settle pending orders for a symbol at current price.
@@ -205,15 +203,11 @@ class IBBroker(Broker):
             
             self._fills.append(fill_record)
             
-            self.logger.info(
-                f"Order filled: {symbol} {quantity} shares @ ${price:.2f} "
-                f"(${commission:.2f} commission)"
-            )
+
             
             return fill_record
             
         except Exception as e:
-            self.logger.error(f"Error executing order: {e}")
             return None
 
     def cash(self) -> float:

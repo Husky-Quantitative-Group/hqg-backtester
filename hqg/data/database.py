@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -18,7 +17,7 @@ class Database:
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
         self.db_path = self.base_path / "market_data.db"
-        self.logger = logging.getLogger(__name__)
+
         
         # Initialize database and create tables
         self._init_database()
@@ -74,7 +73,7 @@ class Database:
                 SELECT * FROM df_to_insert
             """)
         
-        self.logger.info(f"Saved {len(df_to_insert)} bars for {symbol}")
+
     
     def load_daily_data(self, symbol: str) -> Optional[pd.DataFrame]:
         """Load daily OHLCV data for a symbol."""
@@ -161,7 +160,7 @@ class Database:
                 COPY daily_bars TO '{output_path}' (FORMAT PARQUET)
             """)
         
-        self.logger.info(f"Exported data to {output_path}")
+
     
     def get_stats(self) -> dict:
         """Get database statistics."""

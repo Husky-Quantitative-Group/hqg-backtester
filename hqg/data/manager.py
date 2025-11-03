@@ -9,7 +9,6 @@ Users just specify their universe and date range, and this handles:
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Optional, Dict, List
 
@@ -18,7 +17,6 @@ import pandas as pd
 from .database import Database
 from .sources.base import BaseDataSource
 from .sources.yfinance import YFinanceDataSource
-from .sources.ibkr import IBKRDataSource
 
 
 class DataManager:
@@ -56,7 +54,6 @@ class DataManager:
             enable_fallback: Whether to fall back to YFinance if IBKR fails
         """
         self.storage = Database(storage_path)
-        self.logger = logging.getLogger(__name__)
         
         # Initialize data sources
         self.sources: List[tuple[BaseDataSource, str]] = []
@@ -115,7 +112,7 @@ class DataManager:
             if df is not None and not df.empty:
                 result[symbol] = df
             else:
-                self.logger.warning(f"No data available for {symbol}")
+                pass  # No data available
         
         return result
     
@@ -128,7 +125,6 @@ class DataManager:
         """Ensure data is available for all symbols, downloading if needed."""
         for symbol in symbols:
             if self._needs_download(symbol, start_date, end_date):
-                self.logger.info(f"Need to download data for {symbol}")
                 self._download_symbol_data(symbol, start_date, end_date)
     
     def _needs_download(
@@ -155,11 +151,7 @@ class DataManager:
         needs_earlier = existing_start > start_date
         needs_later = existing_end < end_date
         
-        if needs_earlier:
-            self.logger.info(f"{symbol}: Need earlier data ({existing_start} > {start_date})")
-        
-        if needs_later:
-            self.logger.info(f"{symbol}: Need later data ({existing_end} < {end_date})")
+
         
         return needs_earlier or needs_later
     
@@ -173,10 +165,7 @@ class DataManager:
         for source, source_name in self.sources:
             try:
                 if not source.is_available():
-                    self.logger.debug(f"{source_name} is not available, trying next source")
                     continue
-                
-                self.logger.info(f"Downloading {symbol} from {source_name}")
                 
                 # Try to pull from this source
                 data = source.pull_historical_data(symbol, start_date, end_date)
@@ -184,14 +173,10 @@ class DataManager:
                 if data is not None and not data.empty:
                     # Save to database
                     self.storage.save_daily_data(symbol, data)
-                    self.logger.info(f"Successfully downloaded and saved {len(data)} bars for {symbol} from {source_name}")
                     return True
                 
             except Exception as e:
-                self.logger.warning(f"Error downloading {symbol} from {source_name}: {e}")
                 continue
-        
-        self.logger.error(f"Failed to download data for {symbol} from any source")
         return False
     
     def _load_symbol_data(
