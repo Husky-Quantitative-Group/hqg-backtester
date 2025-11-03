@@ -8,7 +8,7 @@ This README is a concise reference for how to run the project, where the pieces 
 
 - Initial cash is set in the strategy's `Initialize()` (use `self.SetCash(...)`).
 - Benchmarks are specified in the strategy entrypoint via `run(MyStrategy, benchmark="SPY")`.
-- Data is stored locally in a DuckDB database at `db/market_data.db` for fast querying and analysis.
+- Data is stored locally in a DuckDB database at `backtester/db/market_data.db` for fast querying and analysis.
 
 ## Quick start (recommended)
 
@@ -21,31 +21,22 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-2. Initialize local storage (optional but recommended):
+2. Run the test example:
 
 ```bash
-python scripts/init_storage.py
+python test_percentage_orders.py
 ```
 
-3. Run the example strategy folder:
-
-```bash
-cd hqg_strategies/strategies/shium_first_project/simple_momentum_strategy
-python main.py
-```
-
-The strategy's `main.py` calls `run(StrategyClass, benchmark="SPY")` and the runner handles config, data fetching (IBKR -> yfinance fallback), and launching the backtester.
+This demonstrates the percentage-based order API and backtesting functionality.
 
 ## Files & responsibilities (where to look)
 
-- `hqg_strategies/.../main.py` — Strategy code. Implement `Initialize()` and `OnData()` here. Call `run(MyStrategy, benchmark=...)` at bottom.
-- `hqg_strategies/.../runner.py` — Runner glue: loads config.yml, sets logging, ensures data via DataManager, runs the backtester.
-- `src/hqg_backtester/engine/backtester.py` — Backtest loop, slice construction, portfolio updates, equity curve collection.
-- `src/hqg_backtester/api/algorithm.py` — Algorithm base class and helper methods available to strategies.
-- `src/hqg_backtester/data/storage.py` — Local storage helpers (Parquet read/write, dedupe/merge, manifest).
-- `src/hqg_backtester/data/sources/ibkr.py` — IBKR data source (primary).
-- `src/hqg_backtester/data/sources/yfinance.py` — yfinance fallback data source.
-- `src/hqg_backtester/analysis/metrics.py` — Performance metrics (returns, Sharpe, drawdown, alpha, beta, trade metrics).
+- `test_percentage_orders.py` — Example strategy demonstrating the percentage-based order API.
+- `backtester/engine/backtester.py` — Backtest loop, slice construction, portfolio updates, equity curve collection.
+- `backtester/api/algorithm.py` — Algorithm base class and helper methods available to strategies.
+- `backtester/data/sources/ibkr.py` — IBKR data source (primary).
+- `backtester/data/sources/yfinance.py` — yfinance fallback data source.
+- `backtester/analysis/metrics.py` — Performance metrics (returns, Sharpe, drawdown, alpha, beta, trade metrics).
 
 ## How a run works (quick)
 
@@ -88,10 +79,10 @@ If you add new features, add unit tests under `tests/` and run the suite before 
 
 ## Developer notes & TODOs
 
-- Storage: Market data is stored in DuckDB at `db/market_data.db` and managed by `data/database.py`.
+- Storage: Market data is stored in DuckDB at `backtester/db/market_data.db` and managed by `backtester/data/database.py`.
 - Data sources: primary IBKR (requires credentials) with a yfinance fallback for convenience.
 - Metrics: `analysis/metrics.py` includes Sharpe, Drawdown, alpha, beta, trade metrics and an informative summary that separates closed trades from open positions.
-- Runner: `hqg_strategies/.../runner.py` is the researcher-friendly entrypoint; strategies should rely on it rather than calling internals.
+- API: Use the `Algorithm` base class in `backtester/api/algorithm.py` for implementing strategies.
 
 ## Contributing
 
