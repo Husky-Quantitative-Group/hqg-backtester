@@ -1,0 +1,7 @@
+{
+  "code": "from hqg_algorithms import Strategy, Cadence\n\nclass MyStrategy(Strategy):\n    def universe(self):\n        return ['AAPL', 'MSFT', 'GOOGL']\n    \n    def cadence(self):\n        return Cadence()\n    \n    def on_data(self, slice, portfolio):\n        # Equal weight portfolio\n        return {\n            'AAPL': 0.33,\n            'MSFT': 0.33,\n            'GOOGL': 0.34\n        }",
+  "startDate": "2023-01-01",
+  "endDate": "2023-12-31",
+  "initialCash": 100000.0
+}
+

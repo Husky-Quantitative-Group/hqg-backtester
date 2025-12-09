@@ -1,55 +1,41 @@
-"""Simple backtester for quantitative strategies."""
-
-from __future__ import annotations
-
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Type
 
-from ..api import Algorithm
+from hqg_algorithms import Strategy
+
 from ..analysis.metrics import PerformanceMetrics
 from ..data.manager import DataManager
 from ..execution.broker import IBBroker
-from ..types import Slice, TradeBar
+from ..data_types import Slice, TradeBar
 
 import pandas as pd
 
 
-
 class Backtester:
-    """Simple backtester for quantitative strategies."""
-
     def __init__(self, 
-                 data_path: str | Path = None,
-                 algorithm_class: Type[Algorithm] = None,
-                 initial_cash: float = 100_000.0,
-                 commission_rate: float = 0.005):
-        """Initialize the backtester."""
+                 data_path=None,
+                 algorithm_class=None,
+                 initial_cash=100000.0,
+                 commission_rate=0.005):
         if data_path is None:
-            # Default to package-relative path
-            data_path = Path(__file__).parent.parent / "db"
+            # Default to root-level data/ directory
+            data_path = Path(__file__).parent.parent.parent / "data"
         self.data_path = Path(data_path)
         self.algorithm_class = algorithm_class
         self.initial_cash = initial_cash
         
-
-        
-        # Initialize components
         self.data_manager = DataManager(str(self.data_path))
         self.broker = IBBroker(commission_rate=commission_rate)
         self.performance_metrics = PerformanceMetrics()
         
-        # Runtime state
         self.algorithm = None
         self.equity_curve = []
 
     def run_backtest(self, 
-                    start_date: datetime,
-                    end_date: datetime,
-                    symbols: List[str]) -> Dict[str, Any]:
-        """Run the backtest."""
+                    start_date,
+                    end_date,
+                    symbols):
         
-        # Get data for all symbols (auto-download if needed)
         data_cache = self.data_manager.get_universe_data(symbols, start_date, end_date, auto_download=True)
         
         if not data_cache:
@@ -60,29 +46,13 @@ class Backtester:
             missing = set(symbols) - set(available_symbols)
             print(f"Warning: Could not get data for: {missing}")
         
-        # Set starting cash
         self.broker.set_starting_cash(self.initial_cash)
-        
-        # Initialize algorithm
         self.algorithm = self.algorithm_class()
-        self.algorithm._broker = self.broker
-        self.algorithm._symbols = available_symbols
         
-        # Initialize algorithm
-        self.algorithm.Initialize()
-        
-        # Get all timestamps
         all_timestamps = set()
         for symbol_data in data_cache.values():
             all_timestamps.update(symbol_data.index)
-
-        '''
-        data cache:
-        dict like this: {'AAPL': <DataFrame of all AAPL data>, 'GOOG': <DataFrame of all GOOG data>}
-
-        '''
         
-        # Main event loop
         for timestamp in sorted(all_timestamps):
             slice_data = {}
             for symbol, symbol_data in data_cache.items():
@@ -92,8 +62,8 @@ class Backtester:
             if not slice_data:
                 continue
             
-            # Create TradeBar objects
             bars = {}
+            current_prices = {}
             for symbol, data in slice_data.items():
                 bars[symbol] = TradeBar(
                     symbol=symbol,
@@ -104,27 +74,25 @@ class Backtester:
                     volume=int(data['volume']),
                     end_time=timestamp
                 )
+                current_prices[symbol] = float(data['close'])
             
-            # Create Slice and call algorithm
             slice_obj = Slice(bars)
-            self.algorithm._current_time = timestamp
-            
-            # Set current prices for percentage-based orders
-            current_prices = {symbol: float(data['close']) for symbol, data in slice_data.items()}
-            self.algorithm._current_prices = current_prices
+            portfolio_view = self._create_portfolio_view()
             
             try:
-                self.algorithm.OnData(slice_obj)
+                target_weights = self.algorithm.on_data(slice_obj, portfolio_view)
+                if target_weights:
+                    self._rebalance_to_targets(target_weights, current_prices)
             except Exception as e:
                 print(f"Error in algorithm at {timestamp}: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
             
-            # Settle orders
             for symbol in slice_data.keys():
                 close_price = float(slice_data[symbol]['close'])
                 self.broker.settle(symbol, close_price, timestamp)
             
-            # Record equity curve
             snapshot = self.broker.snapshot()
             self.equity_curve.append({
                 'time': timestamp,
@@ -133,35 +101,27 @@ class Backtester:
                 'holdings_value': snapshot['holdings_value'],
             })
         
-        # Close all open positions at end of backtest (mark-to-market)
         final_holdings = self.broker.holdings()
         if final_holdings:
             final_timestamp = sorted(all_timestamps)[-1]
             for symbol, holding in final_holdings.items():
                 if holding.quantity != 0:
-                    # Get final price for this symbol
                     final_price = None
-                    for symbol_data in data_cache.values():
-                        if final_timestamp in symbol_data.index:
-                            final_price = float(symbol_data.loc[final_timestamp]['close'])
-                            break
+                    if symbol in data_cache and final_timestamp in data_cache[symbol].index:
+                        final_price = float(data_cache[symbol].loc[final_timestamp]['close'])
                     
                     if final_price:
-                        # Create closing order
                         closing_order = {
                             'type': 'market',
                             'symbol': symbol,
                             'quantity': abs(holding.quantity),
-                            'is_buy': holding.quantity < 0,  # If short, buy to close; if long, sell to close
+                            'is_buy': holding.quantity < 0,
                             'submitted_at': final_timestamp,
                             'status': 'Submitted'
                         }
-                        
-                        # Execute closing order
                         self.broker.submit(closing_order)
                         self.broker.settle(symbol, final_price, final_timestamp)
         
-        # Generate results
         fills = self.broker.get_fills()
         final_snapshot = self.broker.snapshot()
         performance_report = self.performance_metrics.generate_performance_report(
@@ -180,5 +140,55 @@ class Backtester:
             'symbols': symbols,
             'initial_cash': self.initial_cash,
         }
+    
+    def _create_portfolio_view(self):
+        snapshot = self.broker.snapshot()
+        holdings = self.broker.holdings()
+        
+        class SimplePortfolioView:
+            def __init__(self, cash, total_equity, holdings):
+                self.cash = cash
+                self.total_equity = total_equity
+                self._holdings = holdings
+            
+            def holdings(self):
+                return {sym: {'quantity': h.quantity, 'avg_price': h.average_price} 
+                        for sym, h in self._holdings.items()}
+        
+        return SimplePortfolioView(snapshot['cash'], snapshot['total_equity'], holdings)
+    
+    def _rebalance_to_targets(self, target_weights, current_prices):
+        if not target_weights:
+            return
+        
+        snapshot = self.broker.snapshot()
+        total_value = snapshot['total_equity']
+        
+        for symbol, weight in target_weights.items():
+            if symbol not in current_prices:
+                print(f"Warning: No price data for {symbol}, skipping")
+                continue
+            
+            target_value = total_value * weight
+            current_price = current_prices[symbol]
+            target_shares = int(target_value / current_price)
+            
+            if target_shares <= 0:
+                continue
+            
+            holdings = self.broker.holdings()
+            current_shares = holdings[symbol].quantity if symbol in holdings else 0
+            shares_diff = target_shares - current_shares
+            
+            if shares_diff == 0:
+                continue
+            
+            order = {
+                'type': 'market',
+                'symbol': symbol,
+                'quantity': abs(shares_diff),
+                'is_buy': shares_diff > 0,
+            }
+            self.broker.submit(order)
 
 

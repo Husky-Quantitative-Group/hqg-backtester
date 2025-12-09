@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  backtester-api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: hqg-backtester-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount database directory for persistence
+      - ./data:/app/data
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+

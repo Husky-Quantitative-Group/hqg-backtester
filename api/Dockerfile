@@ -2,7 +2,23 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install pandas numpy yfinance ta duckdb pyarrow pyyaml ib_insync matplotlib seaborn scipy
+# Copy requirements first for better caching
+COPY api/requirements.txt /app/requirements.txt
 
-COPY backtester/ ./backtester/
-COPY api/run_strategy.py ./run_strategy.py
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the backtester package
+COPY backtester/ /app/backtester/
+
+# Copy the API main file
+COPY api/main.py /app/main.py
+
+# Set PYTHONPATH
+ENV PYTHONPATH="/app"
+
+# Expose port
+EXPOSE 8000
+
+# Run the FastAPI server
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

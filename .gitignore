@@ -9,3 +9,10 @@ build/
 .mypy_cache/
 .ruff_cache/
 .DS_Store
+
+# Data storage
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

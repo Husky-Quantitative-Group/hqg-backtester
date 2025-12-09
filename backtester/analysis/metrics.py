@@ -1,19 +1,11 @@
-"""Performance metrics and analytics for backtesting results."""
-
-from __future__ import annotations
-
 from datetime import datetime
-from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
 
 class PerformanceMetrics:
-    """Calculate and analyze performance metrics for backtesting results."""
-
-    def calculate_returns(self, equity_curve: List[Dict[str, Any]]) -> pd.Series:
-        """Calculate daily returns from equity curve."""
+    def calculate_returns(self, equity_curve):
         if not equity_curve:
             return pd.Series(dtype=float)
         
@@ -27,9 +19,7 @@ class PerformanceMetrics:
         
         return returns
 
-    def calculate_basic_metrics(self, equity_curve: List[Dict[str, Any]], 
-                             initial_cash: float = 100_000.0) -> Dict[str, float]:
-        """Calculate basic performance metrics."""
+    def calculate_basic_metrics(self, equity_curve, initial_cash=100000.0):
         if not equity_curve:
             return {}
         
@@ -83,8 +73,7 @@ class PerformanceMetrics:
             'total_days': days,
         }
 
-    def calculate_trade_metrics(self, fills: List[Dict[str, Any]]) -> Dict[str, float]:
-        """Calculate trade-specific metrics."""
+    def calculate_trade_metrics(self, fills):
         if not fills:
             return {}
         
@@ -156,6 +145,10 @@ class PerformanceMetrics:
         avg_win = trades_df[trades_df['pnl'] > 0]['pnl'].mean() if winning_trades > 0 else 0
         avg_loss = trades_df[trades_df['pnl'] < 0]['pnl'].mean() if losing_trades > 0 else 0
         
+        # Calculate average return percentages
+        avg_win_pct = trades_df[trades_df['return'] > 0]['return'].mean() if winning_trades > 0 else 0
+        avg_loss_pct = trades_df[trades_df['return'] < 0]['return'].mean() if losing_trades > 0 else 0
+        
         profit_factor = abs(avg_win / avg_loss) if avg_loss != 0 else float('inf')
         
         return {
@@ -165,11 +158,12 @@ class PerformanceMetrics:
             'trade_win_rate': win_rate,
             'avg_win': avg_win,
             'avg_loss': avg_loss,
+            'avg_win_pct': avg_win_pct,
+            'avg_loss_pct': avg_loss_pct,
             'profit_factor': profit_factor,
         }
 
-    def calculate_risk_metrics(self, returns: pd.Series, benchmark_returns: Optional[pd.Series] = None) -> Dict[str, float]:
-        """Calculate risk metrics including beta and alpha."""
+    def calculate_risk_metrics(self, returns, benchmark_returns=None):
         if returns.empty:
             return {}
         
@@ -213,11 +207,7 @@ class PerformanceMetrics:
         
         return metrics
 
-    def generate_performance_report(self, equity_curve: List[Dict[str, Any]], 
-                                 fills: List[Dict[str, Any]], 
-                                 initial_cash: float = 10_000.0,
-                                 benchmark_data: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
-        """Generate comprehensive performance report."""
+    def generate_performance_report(self, equity_curve, fills, initial_cash=10000.0, benchmark_data=None):
         report = {
             'summary': {},
             'returns_metrics': {},
@@ -314,8 +304,7 @@ class PerformanceMetrics:
         
         return report
 
-    def format_metrics_summary(self, report: Dict[str, Any]) -> str:
-        """Format metrics report into a readable summary."""
+    def format_metrics_summary(self, report):
         summary = []
         
         # Header

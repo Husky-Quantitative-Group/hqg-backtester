@@ -1,32 +1,21 @@
-"""DuckDB-based storage for historical market data."""
-
-from __future__ import annotations
-
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import duckdb
 import pandas as pd
 
 
 class Database:
-    """DuckDB-based storage for historical market data."""
-    
-    def __init__(self, base_path: str | Path = None):
+    def __init__(self, base_path=None):
         if base_path is None:
-            # Default to package-relative path
-            base_path = Path(__file__).parent.parent / "db"
+            # Default to root-level data/ directory
+            base_path = Path(__file__).parent.parent.parent / "data"
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
         self.db_path = self.base_path / "market_data.db"
-
-        
-        # Initialize database and create tables
         self._init_database()
     
-    def _init_database(self) -> None:
-        """Initialize database and create required tables."""
+    def _init_database(self):
         with duckdb.connect(str(self.db_path)) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS daily_bars (
@@ -45,8 +34,7 @@ class Database:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_date ON daily_bars(date)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbol_date ON daily_bars(symbol, date)")
     
-    def save_daily_data(self, symbol: str, data: pd.DataFrame) -> None:
-        """Save daily OHLCV data for a symbol."""
+    def save_daily_data(self, symbol, data):
         if data.empty:
             return
             
@@ -57,30 +45,18 @@ class Database:
         if not required_columns.issubset(data.columns):
             raise ValueError(f"Data must contain columns: {required_columns}")
         
-        # Prepare data for insertion
         df_to_insert = data.copy()
         df_to_insert = df_to_insert.reset_index()
         df_to_insert['symbol'] = symbol
-        
-        # The index column might be named 'Date', 'index', or something else
-        index_col = df_to_insert.columns[0]  # First column is always the old index
+        index_col = df_to_insert.columns[0]
         df_to_insert = df_to_insert.rename(columns={index_col: 'date'})
-        
-        # Reorder columns to match table schema
         df_to_insert = df_to_insert[['symbol', 'date', 'open', 'high', 'low', 'close', 'volume']]
         
         with duckdb.connect(str(self.db_path)) as conn:
-            # Delete existing data for this symbol first, then insert
             conn.execute("DELETE FROM daily_bars WHERE symbol = ?", [symbol])
-            conn.execute("""
-                INSERT INTO daily_bars 
-                SELECT * FROM df_to_insert
-            """)
-        
-
+            conn.execute("INSERT INTO daily_bars SELECT * FROM df_to_insert")
     
-    def load_daily_data(self, symbol: str) -> Optional[pd.DataFrame]:
-        """Load daily OHLCV data for a symbol."""
+    def load_daily_data(self, symbol):
         with duckdb.connect(str(self.db_path)) as conn:
             result = conn.execute("""
                 SELECT date, open, high, low, close, volume
@@ -98,8 +74,7 @@ class Database:
         
         return result
     
-    def load_data_range(self, symbol: str, start_date: datetime, end_date: datetime) -> Optional[pd.DataFrame]:
-        """Load daily data for a symbol within a date range."""
+    def load_data_range(self, symbol, start_date, end_date):
         with duckdb.connect(str(self.db_path)) as conn:
             result = conn.execute("""
                 SELECT date, open, high, low, close, volume
@@ -118,8 +93,7 @@ class Database:
         
         return result
     
-    def symbol_exists(self, symbol: str) -> bool:
-        """Check if symbol data exists."""
+    def symbol_exists(self, symbol):
         with duckdb.connect(str(self.db_path)) as conn:
             result = conn.execute("""
                 SELECT COUNT(*) as count 
@@ -129,8 +103,7 @@ class Database:
         
         return result[0] > 0 if result else False
     
-    def get_available_symbols(self) -> list[str]:
-        """Get list of all available symbols."""
+    def get_available_symbols(self):
         with duckdb.connect(str(self.db_path)) as conn:
             result = conn.execute("""
                 SELECT DISTINCT symbol 
@@ -140,8 +113,7 @@ class Database:
         
         return [row[0] for row in result]
     
-    def get_date_range(self, symbol: str) -> Optional[tuple[datetime, datetime]]:
-        """Get the date range of available data for a symbol."""
+    def get_date_range(self, symbol):
         with duckdb.connect(str(self.db_path)) as conn:
             result = conn.execute("""
                 SELECT MIN(date) as start_date, MAX(date) as end_date
@@ -154,20 +126,14 @@ class Database:
         
         return result[0], result[1]
     
-    def export_to_parquet(self, output_path: str | Path) -> None:
-        """Export all data to a Parquet file for backup."""
+    def export_to_parquet(self, output_path):
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         with duckdb.connect(str(self.db_path)) as conn:
-            conn.execute(f"""
-                COPY daily_bars TO '{output_path}' (FORMAT PARQUET)
-            """)
-        
-
+            conn.execute(f"COPY daily_bars TO '{output_path}' (FORMAT PARQUET)")
     
-    def get_stats(self) -> dict:
-        """Get database statistics."""
+    def get_stats(self):
         with duckdb.connect(str(self.db_path)) as conn:
             result = conn.execute("""
                 SELECT 

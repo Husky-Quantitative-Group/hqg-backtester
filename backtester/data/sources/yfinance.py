@@ -1,9 +1,4 @@
-"""Yahoo Finance data source implementation."""
-
-from __future__ import annotations
-
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 
@@ -11,13 +6,10 @@ from .base import BaseDataSource
 
 
 class YFinanceDataSource(BaseDataSource):
-    """Yahoo Finance data source with normalized output."""
-    
     def __init__(self):
         self._yfinance_available = None
     
-    def is_available(self) -> bool:
-        """Check if yfinance is available."""
+    def is_available(self):
         if self._yfinance_available is None:
             try:
                 import yfinance as yf
@@ -26,24 +18,7 @@ class YFinanceDataSource(BaseDataSource):
                 self._yfinance_available = False
         return self._yfinance_available
     
-    def pull_historical_data(
-        self,
-        symbol: str,
-        start_date: datetime,
-        end_date: datetime,
-        **kwargs
-    ) -> Optional[pd.DataFrame]:
-        """Pull historical data from Yahoo Finance.
-        
-        Args:
-            symbol: Symbol to fetch
-            start_date: Start date
-            end_date: End date
-            **kwargs: Additional yfinance parameters
-            
-        Returns:
-            Normalized DataFrame with OHLCV data or None if failed
-        """
+    def pull_historical_data(self, symbol, start_date, end_date, **kwargs):
         if not self.is_available():
             return None
         
