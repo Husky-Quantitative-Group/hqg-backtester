@@ -1,76 +1,113 @@
 # HQG Backtester API
 
-REST API service for running quantitative trading strategy backtests.
+A FastAPI-based service for running quantitative trading strategy backtests.
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### Docker (Recommended)
 
 ```bash
 docker-compose up --build
 ```
 
-The API will be available at `http://localhost:8000`
+API available at `http://localhost:8000`
 
 ### Manual Setup
 
 ```bash
-cd api
 pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+python -m src.api.server
 ```
 
-## API Endpoints
+Or with uvicorn:
+
+```bash
+uvicorn src.api.server:app --host 0.0.0.0 --port 8000
+```
+
+## API Usage
 
 ### Health Check
+
 ```
-GET /health
+GET http://localhost:8000/health
 ```
 
 ### Run Backtest
-```
-POST /backtest
-```
 
-**Request Body:**
-```json
+```
+POST http://localhost:8000/api/v1/backtest
+Content-Type: application/json
+
 {
-  "code": "strategy code as string",
-  "startDate": "2023-01-01",
-  "endDate": "2023-12-31",
-  "initialCash": 100000.0
+  "strategy_code": "class MyStrategy(Strategy):\n  def universe(self):\n    return ['SPY', 'TLT']\n  def cadence(self):\n    return Cadence()\n  def on_data(self, data, portfolio):\n    return {'SPY': 0.6, 'TLT': 0.4}",
+  "start_date": "2023-01-01",
+  "end_date": "2023-12-31",
+  "initial_capital": 100000
 }
 ```
 
-**Response:**
+### Response
+
 ```json
 {
   "success": true,
   "data": {
-    "summary": {...},
-    "metrics": {...},
-    "equityCurve": [...],
-    "orders": [...]
+    "final_value": 125000,
+    "metrics": {
+      "total_return": 0.25,
+      "annualized_return": 0.25,
+      "max_drawdown": -0.15,
+      "sharpe_ratio": 1.2
+    },
+    "equity_curve": [100000, 101000, 102500, ...],
+    "trades": [...]
   }
 }
 ```
 
-## API Documentation
+## Documentation
 
-Once running, visit:
-- Swagger UI: `http://localhost:8000/docs`
+- Interactive Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+
+## Creating a Strategy
+
+Strategies inherit from `hqg_algorithms.Strategy`:
+
+```python
+from hqg_algorithms import Strategy, Cadence
+
+class MyStrategy(Strategy):
+    def universe(self):
+        """Return list of symbols to trade"""
+        return ["SPY", "TLT", "GLD"]
+    
+    def cadence(self):
+        """Return trading frequency"""
+        return Cadence()  # Daily by default
+    
+    def on_data(self, data, portfolio):
+        """Called each period with market data"""
+        # Return dict of {symbol: weight} for rebalancing
+        return {"SPY": 0.5, "TLT": 0.3, "GLD": 0.2}
+```
 
 ## Architecture
 
-- **API Layer**: `api/main.py` - FastAPI endpoints
-- **Backtest Engine**: `backtester/engine/backtester.py` - Core backtesting logic
-- **Broker**: `backtester/execution/broker.py` - Order execution
-- **Metrics**: `backtester/analysis/metrics.py` - Performance analysis
-- **Data Manager**: `backtester/data/manager.py` - Market data fetching and caching
-- **Database**: `data/` - DuckDB database for cached market data
+- **API**: src/api/ - FastAPI routes and middleware
+- **Services**: src/services/ - Backtester logic and data providers
+- **Models**: src/models/ - Pydantic schemas
+- **Tests**: tests/ - Unit and integration tests
+
+See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for detailed architecture.
+
+## Requirements
+
+- Python 3.10+
+- Dependencies in [requirements.txt](requirements.txt)
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file.
 
