@@ -1,18 +1,3 @@
 __pycache__/
-*.py[cod]
-.venv/
-dist/
-*.egg-info/
-build/
-.ipynb_checkpoints/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.DS_Store
-
-# Data storage
-data/
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
+.venv
+.env
