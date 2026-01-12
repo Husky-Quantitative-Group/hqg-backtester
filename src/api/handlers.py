@@ -38,10 +38,10 @@ class BacktestHandler:
             return BacktestResponse(
                 trades=result.trades,
                 metrics=result.metrics,
-                equity_curve=result.equity_curve,
                 final_value=result.final_value,
-                final_holdings=result.final_holdings,
-                final_cash=result.final_cash
+                final_positions=result.final_positions,
+                final_cash=result.final_cash,
+                equity_curve=result.equity_curve
             )
             
         except Exception as e:

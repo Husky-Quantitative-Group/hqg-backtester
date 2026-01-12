@@ -38,8 +38,9 @@ class BacktestResult(BaseModel):
     """Backtest result (used internally)"""
     trades: List[Trade]
     metrics: PerformanceMetrics
+    equity_curve: Dict[str, float]
     final_value: float
-    final_holdings: Dict[str, float]
+    final_positions: Dict[str, float]
     final_cash: float
 
 
@@ -48,5 +49,6 @@ class BacktestResponse(BaseModel):
     trades: List[Trade]
     metrics: PerformanceMetrics
     final_value: float
-    final_holdings: Dict[str, float]
+    final_positions: Dict[str, float]
     final_cash: float
+    equity_curve: Dict[str, float]

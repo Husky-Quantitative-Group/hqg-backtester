@@ -10,15 +10,27 @@ class Portfolio:
     
     def __init__(self, initial_cash: float, symbols: List[str]):
         self.cash = initial_cash
-        self.holdings: Dict[str, float] = {symbol: 0.0 for symbol in symbols}
+        self.positions: Dict[str, float] = {symbol: 0.0 for symbol in symbols}  # ticker: quantity owned
     
-    def total_value(self, prices: Dict[str, float]) -> float:
+    def get_total_value(self, prices: Dict[str, float]) -> float:
         """ (cash + positions) """
         positions_value = sum(
-            self.holdings.get(symbol, 0) * prices.get(symbol, 0)
-            for symbol in self.holdings
+            self.positions.get(symbol, 0) * prices.get(symbol, 0)
+            for symbol in self.positions
         )
         return self.cash + positions_value
+
+    def get_weights(self, prices: Dict[str, float]) -> Dict[str, float]:
+        """ returns dict of ticker: weight. Sum will be <= 1, as we will not return Cash """
+        wts = {}
+        tv = self.get_total_value(prices)
+        for tick, quantity in self.positions.items():
+            if tick not in prices:
+                continue
+            wt = prices[tick] * quantity / tv
+            wts[tick] = wt
+        return wts
+
     
     def rebalance(self, target_weights: Dict[str, float], prices: Dict[str, float], timestamp: datetime) -> List[Trade]:
         """
@@ -40,7 +52,7 @@ class Portfolio:
             raise ValueError(f"Target weights sum to {total_weight}, must be <= 1.0")
         
         # current portfolio value
-        total_value = self.total_value(prices)
+        total_value = self.get_total_value(prices)
         
         # target positions (in shares)
         target_positions = {}
@@ -53,8 +65,8 @@ class Portfolio:
             target_positions[symbol] = target_shares
         
         # execute trades for each symbol
-        for symbol in self.holdings:
-            current_shares = self.holdings[symbol]
+        for symbol in self.positions:
+            current_shares = self.positions[symbol]
             target_shares = target_positions.get(symbol, 0.0)
             
             shares_to_trade = target_shares - current_shares
@@ -72,7 +84,7 @@ class Portfolio:
             # execute buy or sell 
             # (assume x1 margin, so cash can be momentarily negative as we rebalance)
             if shares_to_trade > 0:
-                self.holdings[symbol] += shares_to_trade
+                self.positions[symbol] += shares_to_trade
                 self.cash -= trade_value
                 
                 trades.append(Trade(
@@ -88,7 +100,7 @@ class Portfolio:
                 # Sell
                 shares_to_sell = abs(shares_to_trade)
                 
-                self.holdings[symbol] -= shares_to_sell
+                self.positions[symbol] -= shares_to_sell
                 self.cash += trade_value
                     
                 trades.append(Trade(

@@ -1,7 +1,7 @@
 # src.utils.metrics
 import numpy as np
 import pandas as pd
-from typing import List
+from typing import List, Dict
 from ..models.portfolio import Portfolio
 from ..models.response import Trade, PerformanceMetrics
 
@@ -9,8 +9,14 @@ from ..models.response import Trade, PerformanceMetrics
 # TODO: add alpha/beta/etc calcs from S&P returns
 # TODO: don't build equity curve twice
 
-def calculate_equity_curve(trades: List[Trade], initial_capital: float):
-    return _build_equity_curve(trades, initial_capital)
+def calculate_equity_curve_dict(trades: List[Trade], initial_capital: float)-> Dict[str, float]:
+    series = _build_equity_curve(trades, initial_capital)
+    equity_curve_dict = {
+            str(timestamp): value 
+            for timestamp, value in series.items()
+        }
+    
+    return equity_curve_dict
 
 # TODO: finish
 def calculate_metrics(portfolio: Portfolio, trades: List[Trade], initial_capital: float) -> PerformanceMetrics:
@@ -51,7 +57,7 @@ def calculate_metrics(portfolio: Portfolio, trades: List[Trade], initial_capital
     )
 
 
-def _calculate_sharpe(returns: pd.Series[float]) -> float:
+def _calculate_sharpe(returns: pd.Series) -> float:
     # (assuming 252 trading days, avg 3.5% risk-free rate...)
     if len(returns) > 1 and returns.std() > 0:
         daily_rf = 0.035 / 252
@@ -73,7 +79,7 @@ def _build_equity_curve(trades: List[Trade], initial_capital: float) -> pd.Serie
     
     cash_flows = trade_df.groupby('timestamp')['value'].sum()
     equity = initial_capital + cash_flows.cumsum()
-    
+
     return equity
 
 
