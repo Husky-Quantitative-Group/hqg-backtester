@@ -1,2 +1,0 @@
-"""HQG Backtester - Backtesting Engine"""
-
