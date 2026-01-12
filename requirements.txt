@@ -9,3 +9,6 @@ yfinance
 fastapi
 uvicorn
 pydantic_settings
+httpx
+pytest
+pytest-asyncio
