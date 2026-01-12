@@ -4,6 +4,9 @@ from datetime import datetime
 
 # example usage
 class MyStrategy(Strategy):
+    def __init__(self):
+        self.isInvested = False
+
     def universe(self):
         return ["SPY", "TLT"]
     
@@ -11,8 +14,10 @@ class MyStrategy(Strategy):
         return Cadence()
     
     def on_data(self, data: Slice, portfolio: PortfolioView):
-        return {"SPY": 0.6, "TLT": 0.4}
-
+        if not self.isInvested:
+            self.isInvested = True
+            return {"SPY": 0.6, "TLT": 0.4}
+        return {}
 
 async def main():
     bt = Backtester()
