@@ -11,6 +11,10 @@ class Portfolio:
     def __init__(self, initial_cash: float, symbols: List[str]):
         self.cash = initial_cash
         self.positions: Dict[str, float] = {symbol: 0.0 for symbol in symbols}  # ticker: quantity owned
+        self.equity_curve: Dict[datetime, float] = {}  # track NAV over time
+
+    def update_equity_curve(self, timestamp: datetime, total_value: float) -> None:
+        self.equity_curve[timestamp] = total_value
     
     def get_total_value(self, prices: Dict[str, float]) -> float:
         """ (cash + positions) """
@@ -71,8 +75,8 @@ class Portfolio:
             
             shares_to_trade = target_shares - current_shares
             
-            # skip if change is negligible
-            if abs(shares_to_trade) < 0.01:
+            # skip if change is negligible (under $1)
+            if abs(shares_to_trade * prices[symbol]) < 1:
                 continue
             
             if symbol not in prices:

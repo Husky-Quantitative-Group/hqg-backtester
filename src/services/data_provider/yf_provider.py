@@ -89,25 +89,26 @@ class YFDataProvider(BaseDataProvider):
     
     def _format_data(self, data: pd.DataFrame, symbols: List[str]) -> pd.DataFrame:
         """ Expected format: MultiIndex columns with (symbol, field) where field is one of: open, high, low, close, volume """
+        formatted = pd.DataFrame()
+        
         if len(symbols) == 1:
             # single symbol
             symbol = symbols[0]
-            formatted = pd.DataFrame()
             
             for field in ['Open', 'High', 'Low', 'Close', 'Volume']:
                 if field in data.columns:
                     formatted[(symbol, field.lower())] = data[field]
-            
-            return formatted
         
         else:
             # multiple symbols - already grouped by ticker
-            formatted = pd.DataFrame()
-            
             for symbol in symbols:
                 if symbol in data.columns:
                     for field in ['Open', 'High', 'Low', 'Close', 'Volume']:
                         if field in data[symbol].columns:
                             formatted[(symbol, field.lower())] = data[symbol][field]
-            
-            return formatted
+        
+        # Ensure MultiIndex columns
+        if len(formatted) > 0 and not isinstance(formatted.columns, pd.MultiIndex):
+            formatted.columns = pd.MultiIndex.from_tuples(formatted.columns)
+        
+        return formatted

@@ -9,19 +9,11 @@ from ..models.response import Trade, PerformanceMetrics
 # TODO: add alpha/beta/etc calcs from S&P returns
 # TODO: don't build equity curve twice
 
-def calculate_equity_curve_dict(trades: List[Trade], initial_capital: float)-> Dict[str, float]:
-    series = _build_equity_curve(trades, initial_capital)
-    equity_curve_dict = {
-            str(timestamp): value 
-            for timestamp, value in series.items()
-        }
-    
-    return equity_curve_dict
 
 # TODO: finish
 def calculate_metrics(portfolio: Portfolio, trades: List[Trade], initial_capital: float) -> PerformanceMetrics:
 
-    equity_curve = _build_equity_curve(trades, initial_capital)
+    equity_curve = pd.Series(portfolio.equity_curve)
     returns = equity_curve.pct_change().dropna()
     
     # total return
@@ -65,24 +57,6 @@ def _calculate_sharpe(returns: pd.Series) -> float:
     return 0.0
 
 
-def _build_equity_curve(trades: List[Trade], initial_capital: float) -> pd.Series:
-    if not trades:
-        return pd.Series([initial_capital])
-    
-    trade_df = pd.DataFrame([
-        {
-            'timestamp': t.timestamp,
-            'value': t.value if t.action == 'sell' else -t.value
-        }
-        for t in trades
-    ])
-    
-    cash_flows = trade_df.groupby('timestamp')['value'].sum()
-    equity = initial_capital + cash_flows.cumsum()
-
-    return equity
-
-
 def _calculate_max_drawdown(equity_curve: pd.Series) -> float:
     if len(equity_curve) < 2:
         return 0.0
@@ -92,8 +66,7 @@ def _calculate_max_drawdown(equity_curve: pd.Series) -> float:
     return abs(drawdown.min())
 
 
-# TODO: placeholder
 def _calculate_win_rate(trades: List[Trade]) -> float:
-    return .5
+    return -1
 
 # TODO ... add the others (need to get S&P, 10yr T-bill data)

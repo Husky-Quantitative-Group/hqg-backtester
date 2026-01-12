@@ -6,7 +6,7 @@ from ..models.portfolio import Portfolio
 from ..models.response import BacktestResult, Trade
 from ..services.data_provider.base_provider import BaseDataProvider
 from ..services.data_provider.yf_provider import YFDataProvider
-from ..utils.metrics import calculate_metrics, calculate_equity_curve_dict
+from ..utils.metrics import calculate_metrics
 
 
 class Backtester:
@@ -47,7 +47,9 @@ class Backtester:
         
         final_prices = self._get_final_prices(data, symbols)
         metrics = calculate_metrics(portfolio, trades, initial_capital)
-        equity_curve = calculate_equity_curve_dict(trades, initial_capital)        
+    
+        # timestamp to str for pydantic
+        equity_curve = {str(ts): value for ts, value in portfolio.equity_curve.items()}
         
         return BacktestResult(
             trades=trades,
@@ -80,6 +82,7 @@ class Backtester:
             
             # makeportfolio view
             prices = self._get_prices(slice_obj, strategy.universe())
+            portfolio.update_equity_curve(timestamp, portfolio.get_total_value(prices))
 
             portfolio_view = PortfolioView(
                 equity=portfolio.get_total_value(prices),
@@ -98,7 +101,6 @@ class Backtester:
             # calculate execution timestamp with lag
             exec_index = i + cadence.exec_lag_bars
             if exec_index >= len(timestamps):
-                # Can't execute if we've run out of data
                 break
             
             exec_timestamp = timestamps[exec_index]
@@ -136,5 +138,5 @@ class Backtester:
         """Get prices at the last timestamp."""
         final_timestamp = data.index[-1]
         timestamp_data = data.loc[final_timestamp]
-        slice_obj = Slice(timestamp_data.to_dict())
+        slice_obj = self._create_slice(timestamp_data)
         return self._get_prices(slice_obj, symbols)
