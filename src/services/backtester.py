@@ -26,7 +26,7 @@ class Backtester:
             initial_capital: Starting capital (default: 10000)
         
         Returns:
-            BacktestResult with trades, metrics, and final portfolio state
+            BacktestResult with trades, metrics, ohlc, and final portfolio state
         """
         symbols = strategy.universe()
         cadence = strategy.cadence()
@@ -43,7 +43,7 @@ class Backtester:
             symbols=symbols
         )
         
-        trades = self._run_loop(strategy, data, portfolio, cadence)
+        trades, ohlc = self._run_loop(strategy, data, portfolio, cadence)
         
         final_prices = self._get_final_prices(data, symbols)
         metrics = calculate_metrics(portfolio, trades, initial_capital)
@@ -55,6 +55,7 @@ class Backtester:
             trades=trades,
             metrics=metrics,
             equity_curve=equity_curve,
+            ohlc=ohlc,
             final_value=portfolio.get_total_value(final_prices),
             final_positions=portfolio.positions.copy(),
             final_cash=portfolio.cash
@@ -66,9 +67,16 @@ class Backtester:
 
     
     # TODO duckdb?
-    def _run_loop( self, strategy: Strategy, data: pd.DataFrame, portfolio: Portfolio, cadence: Cadence) -> List[Trade]:
-        """ Core backtest loop """
+    def _run_loop(self, strategy: Strategy, data: pd.DataFrame, portfolio: Portfolio, cadence: Cadence) -> tuple[List[Trade], Dict]:
+        """
+        Core backtest loop
+        
+        Returns:
+            List of Trades
+            DataFrame of portfolio OHLC
+        """
         trades = []
+        ohlc = []
         timestamps = data.index.unique()
         
         for i, timestamp in enumerate(timestamps):
@@ -76,11 +84,13 @@ class Backtester:
                 continue
             
             # create data slice at decision time
-            #print(data)
             timestamp_data = data.loc[timestamp]
             slice_obj = self._create_slice(timestamp_data)
-            
-            # makeportfolio view
+
+            # update ohlc with current positions (before rebalancing)
+            ohlc.append(portfolio.update_ohlc(timestamp, slice_obj))
+
+            # make portfolio view
             prices = self._get_prices(slice_obj, strategy.universe())
             portfolio.update_equity_curve(timestamp, portfolio.get_total_value(prices))
 
@@ -114,7 +124,20 @@ class Backtester:
             )
             trades.extend(new_trades)
         
-        return trades
+        # convert OHLC list to nested dict timestamp -> {open, high, low, close}
+        ohlc_df = pd.DataFrame(ohlc)
+        ohlc_dict = {}
+        if not ohlc_df.empty:
+            ohlc_df = ohlc_df.set_index('timestamp')
+            for ts, row in ohlc_df.iterrows():
+                ohlc_dict[str(ts)] = {
+                    'open': row['open'],
+                    'high': row['high'],
+                    'low': row['low'],
+                    'close': row['close']
+                }
+        
+        return trades, ohlc_dict
     
     def _create_slice(self, timestamp_data: pd.Series) -> Slice:
         """Convert DataFrame row with MultiIndex columns to Slice dict format."""

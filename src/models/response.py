@@ -31,6 +31,8 @@ class PerformanceMetrics(BaseModel):
     psr: float
     avg_win: float
     avg_loss: float
+    annualized_variance: float
+    annualized_std: float
 
 
 # In case we want extra stuff that won't appear in dashboard
@@ -39,6 +41,7 @@ class BacktestResult(BaseModel):
     trades: List[Trade]
     metrics: PerformanceMetrics
     equity_curve: Dict[str, float]
+    ohlc: Dict[str, Dict[str, float]]
     final_value: float
     final_positions: Dict[str, float]
     final_cash: float
@@ -48,7 +51,8 @@ class BacktestResponse(BaseModel):
     """API response format"""
     trades: List[Trade]
     metrics: PerformanceMetrics
+    equity_curve: Dict[str, float]
+    ohlc: Dict[str, Dict[str, float]]
     final_value: float
     final_positions: Dict[str, float]
     final_cash: float
-    equity_curve: Dict[str, float]

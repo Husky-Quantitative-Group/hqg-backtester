@@ -1,6 +1,7 @@
 from typing import Dict, List
 from datetime import datetime
 from .response import OrderType, Trade
+from hqg_algorithms import Slice
 
 class Portfolio:
     """
@@ -117,3 +118,45 @@ class Portfolio:
                 ))
         
         return trades
+    
+    def update_ohlc(self, timestamp: datetime, slice_obj: Slice) -> Dict:
+        """
+        Calculate portfolio OHLC based on current positions and market OHLC.
+        
+        Args:
+            timestamp: Current timestamp
+            slice_obj: Slice object with market data
+        
+        Returns:
+            Dict with timestamp and portfolio OHLC values
+        """
+        portfolio_open = self.cash
+        portfolio_high = self.cash
+        portfolio_low = self.cash
+        portfolio_close = self.cash
+        
+        for symbol, shares in self.positions.items():
+            if shares <= 0:
+                continue
+                
+            open_price = slice_obj[symbol].get("open")
+            high_price = slice_obj[symbol].get("high")
+            low_price = slice_obj[symbol].get("low")
+            close_price = slice_obj[symbol].get("close")
+            
+            if open_price is not None:
+                portfolio_open += shares * open_price
+            if high_price is not None:
+                portfolio_high += shares * high_price
+            if low_price is not None:
+                portfolio_low += shares * low_price
+            if close_price is not None:
+                portfolio_close += shares * close_price
+        
+        return {
+            'timestamp': timestamp,
+            'open': portfolio_open,
+            'high': portfolio_high,
+            'low': portfolio_low,
+            'close': portfolio_close
+        }
