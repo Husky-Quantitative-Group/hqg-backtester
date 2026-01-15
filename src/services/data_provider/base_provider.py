@@ -7,7 +7,7 @@ import pandas as pd
 class BaseDataProvider(ABC):
 
     @abstractmethod
-    async def get_data(
+    def get_data(
         self,
         symbols: List[str],
         start_date: datetime,

@@ -11,7 +11,7 @@ class MockDataProvider(BaseDataProvider):
         super().__init__()
         self.initial_prices = initial_prices or {}
     
-    async def get_data(
+    def get_data(
         self,
         symbols: List[str],
         start_date: datetime,

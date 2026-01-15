@@ -12,7 +12,13 @@ from math import erf, sqrt
 # TODO: add max drawdown recovery
 # TODO: ensure daily returns map long term
 
-def calculate_metrics(portfolio: Portfolio, trades: List[Trade], initial_capital: float) -> PerformanceMetrics:
+def calculate_metrics(
+        portfolio: Portfolio, 
+        trades: List[Trade], 
+        initial_capital: float, 
+        data_provider = None, 
+        bar_size: timedelta = timedelta(days=1)
+    ) -> PerformanceMetrics:
 
     equity_curve = pd.Series(portfolio.equity_curve)
     returns = equity_curve.pct_change().dropna()
@@ -39,7 +45,7 @@ def calculate_metrics(portfolio: Portfolio, trades: List[Trade], initial_capital
     psr_value = _calculate_psr(returns)
     
     # alpha and beta (using S&P 500 benchmark)
-    alpha, beta = _calculate_alpha_beta(returns, equity_curve.index[0], equity_curve.index[-1])
+    alpha, beta = _calculate_alpha_beta(returns, equity_curve.index[0], equity_curve.index[-1], data_provider, bar_size)
 
     ann_var, ann_std = _calculcate_var_std(returns)
     
@@ -248,15 +254,24 @@ def _calculate_psr(returns: pd.Series, risk_free_rate: float = 0.035, periods_pe
 
 
 
-def _calculate_alpha_beta(returns: pd.Series, start_date: datetime, end_date: datetime) -> Tuple[float, float]:
+def _calculate_alpha_beta(returns: pd.Series, start_date: datetime, end_date: datetime, data_provider, bar_size) -> Tuple[float, float]:
     """
     Calculate alpha and beta against S&P 500 benchmark.
     """
     try:
-        # Download benchmark data
-        spy = yf.download('^GSPC', start=start_date, end=end_date+timedelta(days=1), progress=False)
+        if data_provider:
+            spy = data_provider.get_data(
+                symbols=['^GSPC'],
+                start_date=start_date,
+                end_date=end_date,
+                bar_size=bar_size
+            )
+            close = spy[('^GSPC', 'close')]
 
-        close = spy["Close"].squeeze("columns")
+        else:
+            spy = yf.download('^GSPC', start=start_date, end=end_date+timedelta(days=1), progress=False, auto_adjust=True)
+            close = spy["Close"].squeeze()  # capital C for raw yfinance
+
         benchmark_returns = close.pct_change().dropna()
 
         aligned_returns, aligned_benchmark = returns.align(benchmark_returns, join="inner")
@@ -278,7 +293,6 @@ def _calculate_alpha_beta(returns: pd.Series, start_date: datetime, end_date: da
         return float(alpha), float(beta)
     
     except Exception as e:
-        print(e)
         return -1, -1
     
 

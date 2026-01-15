@@ -31,7 +31,7 @@ class Backtester:
         symbols = strategy.universe()
         cadence = strategy.cadence()
         
-        data = await self.data_provider.get_data(
+        data = self.data_provider.get_data(
             symbols=symbols,
             start_date=start_date,
             end_date=end_date,
@@ -46,7 +46,7 @@ class Backtester:
         trades, ohlc = self._run_loop(strategy, data, portfolio, cadence)
         
         final_prices = self._get_final_prices(data, symbols)
-        metrics = calculate_metrics(portfolio, trades, initial_capital)
+        metrics = calculate_metrics(portfolio, trades, initial_capital, self.data_provider, cadence.bar_size)
     
         # timestamp to str for pydantic
         equity_curve = {str(ts): value for ts, value in portfolio.equity_curve.items()}

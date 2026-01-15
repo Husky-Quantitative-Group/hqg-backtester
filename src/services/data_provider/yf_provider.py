@@ -14,7 +14,7 @@ class YFDataProvider(BaseDataProvider):
     Returns data in the format expected by the backtester.
     """
     
-    async def get_data(
+    def get_data(
         self,
         symbols: List[str],
         start_date: datetime,
@@ -48,7 +48,8 @@ class YFDataProvider(BaseDataProvider):
             end=end_date + timedelta(days=1),  # include end date
             interval=interval,
             progress=False,
-            group_by='ticker'
+            group_by='ticker',
+            auto_adjust=True
         )
         
         if data.empty:
@@ -91,24 +92,14 @@ class YFDataProvider(BaseDataProvider):
         """ Expected format: MultiIndex columns with (symbol, field) where field is one of: open, high, low, close, volume """
         formatted = pd.DataFrame()
         
-        if len(symbols) == 1:
-            # single symbol
-            symbol = symbols[0]
-            
-            for field in ['Open', 'High', 'Low', 'Close', 'Volume']:
-                if field in data.columns:
-                    formatted[(symbol, field.lower())] = data[field]
+        for symbol in symbols:
+            if symbol in data.columns:
+                for field in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                    if field in data[symbol].columns:
+                        formatted[(symbol, field.lower())] = data[symbol][field]
         
-        else:
-            # multiple symbols - already grouped by ticker
-            for symbol in symbols:
-                if symbol in data.columns:
-                    for field in ['Open', 'High', 'Low', 'Close', 'Volume']:
-                        if field in data[symbol].columns:
-                            formatted[(symbol, field.lower())] = data[symbol][field]
-        
-        # Ensure MultiIndex columns
-        if len(formatted) > 0 and not isinstance(formatted.columns, pd.MultiIndex):
+        # ensure MultiIndex columns
+        if len(formatted.columns) > 0 and not isinstance(formatted.columns, pd.MultiIndex):
             formatted.columns = pd.MultiIndex.from_tuples(formatted.columns)
         
         return formatted
