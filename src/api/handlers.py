@@ -39,6 +39,7 @@ class BacktestHandler:
                 trades=result.trades,
                 metrics=result.metrics,
                 final_value=result.final_value,
+                ohlc=result.ohlc,
                 final_positions=result.final_positions,
                 final_cash=result.final_cash,
                 equity_curve=result.equity_curve

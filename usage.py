@@ -1,6 +1,7 @@
 from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView
 from src.services.backtester import Backtester
 from datetime import datetime
+import asyncio
 
 # example usage
 class MyStrategy(Strategy):
@@ -17,7 +18,7 @@ class MyStrategy(Strategy):
         if not self.isInvested:
             self.isInvested = True
             return {"SPY": 0.6, "TLT": 0.4}
-        return {}
+        return None
 
 async def main():
     bt = Backtester()
@@ -31,6 +32,7 @@ async def main():
 
     print(f"Final value: ${result.final_value:.2f}")
     print(f"Total return: {result.metrics.total_return:.2%}")
+    print(f"Sharpe ratio: {result.metrics.sharpe_ratio:.2f}")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

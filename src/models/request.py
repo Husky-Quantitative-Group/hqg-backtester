@@ -22,4 +22,11 @@ class BacktestRequest(BaseModel):
             raise ValueError("end_date must be after start_date")
         return v
     
+    @field_validator('initial_capital')
+    @classmethod
+    def validate_capital(cls, v):
+        if v <= 0:
+            raise ValueError("initial_capital must be great than 0")
+        return v
+    
     # TODO, add other checks to prevent injection, etc.
