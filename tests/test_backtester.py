@@ -56,35 +56,37 @@ def compare_metrics(
     expected: dict,
     threshold: float = METRIC_ERROR_THRESHOLD,
     exclude_fields: list = None
-) -> tuple[bool, dict]:
+) -> tuple[bool, dict, int]:
     """
     Compare actual metrics against expected values with relative error threshold.
-    
+
     Args:
         actual: PerformanceMetrics from backtester
         expected: Dictionary of expected values
         threshold: Relative error threshold (default 1%)
         exclude_fields: Fields to skip comparison
-    
+
     Returns:
-        Tuple of (all_within_threshold, error_details)
+        Tuple of (all_within_threshold, error_details, exceeded_count)
     """
     if exclude_fields is None:
         exclude_fields = []
-    
+
     errors = {}
     all_within = True
-    
+    exceeded_count = 0  # count metrics that exceeded threshold or are missing
+
     for field, expected_val in expected.items():
         if field in exclude_fields:
             continue
-        
+
         actual_val = getattr(actual, field, None)
         if actual_val is None:
             errors[field] = {"status": "MISSING", "expected": expected_val}
             all_within = False
+            exceeded_count += 1
             continue
-        
+
         # avoid division by zero
         if expected_val == 0:
             if actual_val != 0:
@@ -95,10 +97,18 @@ def compare_metrics(
                     "error": abs(actual_val - expected_val)
                 }
                 all_within = False
+                exceeded_count += 1
+            else:
+                errors[field] = {
+                    "status": "OK",
+                    "expected": expected_val,
+                    "actual": actual_val,
+                    "relative_error": 0.0
+                }
         else:
             # Relative error: |actual - expected| / |expected|
             relative_error = abs(actual_val - expected_val) / abs(expected_val)
-            
+
             if relative_error <= threshold:
                 errors[field] = {
                     "status": "OK",
@@ -115,15 +125,16 @@ def compare_metrics(
                     "threshold": threshold
                 }
                 all_within = False
-    
-    return all_within, errors
+                exceeded_count += 1
+
+    return all_within, errors, exceeded_count
 
 
 @pytest.mark.asyncio
 async def test_meanvar_baseline_vs_quantconnect():
     """
     Test MeanVar strategy against QuantConnect baseline.
-    
+
     Validates:
     - All metrics are within 1% relative error
     - Strategy executes and produces consistent results
@@ -132,7 +143,7 @@ async def test_meanvar_baseline_vs_quantconnect():
     # Initialize strategy and backtester
     strategy = MeanVar()
     backtester = Backtester()
-    
+
     # Run backtest
     result = await backtester.run(
         strategy=strategy,
@@ -140,19 +151,21 @@ async def test_meanvar_baseline_vs_quantconnect():
         end_date=MEANVAR_END_DATE,
         initial_capital=MEANVAR_INITIAL_CAPITAL
     )
-    
+
     # Verify we got results
     assert result is not None, "Backtester returned None"
     assert result.metrics is not None, "No metrics in result"
     assert len(result.trades) > 0, "No trades were executed"
-    
+
     # Compare metrics against QuantConnect baseline
-    within_threshold, errors = compare_metrics(
+    within_threshold, errors, exceeded_count = compare_metrics(
         actual=result.metrics,
         expected=MEANVAR_QC_METRICS,
         threshold=METRIC_ERROR_THRESHOLD
     )
-    
+
+    total_compared = len(errors)
+
     # Print detailed error report for debugging
     print("\n" + "="*70)
     print("MEANVAR BASELINE COMPARISON REPORT")
@@ -168,10 +181,15 @@ async def test_meanvar_baseline_vs_quantconnect():
         else:
             print(f"? {field:20s}: {status}")
     print("="*70)
-    
+    print(f"Metrics outside threshold: {exceeded_count}/{total_compared}")
+    print("="*70)
+
     # Assert all metrics are within threshold
-    assert within_threshold, f"Some metrics exceeded {METRIC_ERROR_THRESHOLD*100}% error threshold"
-    
+    assert within_threshold, (
+        f"{exceeded_count}/{total_compared} metrics exceeded "
+        f"{METRIC_ERROR_THRESHOLD*100}% error threshold"
+    )
+
     # Log additional info
     print(f"\nBacktest Summary:")
     print(f"  Final Portfolio Value: ${result.final_value:,.2f}")
@@ -184,7 +202,7 @@ async def test_meanvar_baseline_vs_quantconnect():
 async def test_meanvar_produces_valid_results():
     """
     Sanity check that MeanVar strategy produces valid results.
-    
+
     Validates:
     - Strategy runs without errors
     - Produces trades
@@ -192,20 +210,20 @@ async def test_meanvar_produces_valid_results():
     """
     strategy = MeanVar()
     backtester = Backtester()
-    
+
     result = await backtester.run(
         strategy=strategy,
         start_date=MEANVAR_START_DATE,
         end_date=MEANVAR_END_DATE,
         initial_capital=MEANVAR_INITIAL_CAPITAL
     )
-    
+
     # Sanity checks
     assert result.final_value > 0, "Final value should be positive"
     assert len(result.trades) > 0, "Strategy should execute trades"
-    
+
     # Check metric sanity
-    assert result.metrics.max_drawdown <= 0, "Max drawdown should be negative"
+    assert result.metrics.max_drawdown > 0, "Max drawdown should be positive"
     assert -1 <= result.metrics.total_return <= 5, "Total return should be reasonable"
     assert 0 <= result.metrics.win_rate <= 1, "Win rate should be between 0 and 1"
     assert result.metrics.sharpe_ratio > -5 and result.metrics.sharpe_ratio < 5, "Sharpe ratio should be reasonable"
@@ -218,4 +236,3 @@ def test_meanvar_baseline_wrapper():
 def test_meanvar_valid_results_wrapper():
     """Sync wrapper for async test"""
     asyncio.run(test_meanvar_produces_valid_results())
-

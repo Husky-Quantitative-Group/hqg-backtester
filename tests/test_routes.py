@@ -2,9 +2,6 @@ import pytest
 from fastapi.testclient import TestClient
 from datetime import datetime, timedelta
 from src.api.server import app
-from src.models.request import BacktestRequest
-from src.models.response import BacktestResponse
-
 
 client = TestClient(app)
 
@@ -14,7 +11,7 @@ def valid_backtest_request():
     """Fixture for a valid backtest request"""
     return {
         "strategy_code": """
-from hqg_algorithms import Strategy
+from hqg_algorithms import *
 
 class MyStrategy(Strategy):
     def __init__(self):
@@ -29,8 +26,8 @@ class MyStrategy(Strategy):
     def on_data(self, data: Slice, portfolio: PortfolioView):
         if not self.isInvested:
             self.isInvested = True
-            return {"SPY": 0.6, "TLT": 0.4}
-        return {}  
+            return {"SPY": 0.5, "TLT": 0.5}
+        return None
     """,
         "start_date": (datetime.now() - timedelta(days=365)).isoformat(),
         "end_date": datetime.now().isoformat(),
@@ -98,4 +95,4 @@ def test_backtest_code_too_large():
         "initial_capital": 10000
     }
     response = client.post("/api/v1/backtest", json=request)
-    assert response.status_code == 422
+    assert response.status_code == 413
