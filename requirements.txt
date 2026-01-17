@@ -1,0 +1,5 @@
+fastapi[standard]
+hqg-algorithms
+numpy
+pandas
+yfinance
