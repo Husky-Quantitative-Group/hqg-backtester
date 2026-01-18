@@ -1,30 +1,31 @@
 # Backtester API
 
-REST API for running quantitative trading strategy backtests.
+REST API for running quantitative trading strategy backtests with sandboxed execution.
 
 ## Quick Start
 
-### Using Docker (Recommended)
-
 ```bash
-# Build and run
-docker-compose up --build
+# Build worker image
+./build-worker.sh
 
-# Or just run (if already built)
-docker-compose up
+# Start production services
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f api
+
+# Stop services
+docker-compose down
 ```
 
 The API will be available at `http://localhost:8000`
 
-### Manual Setup
+## Architecture
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the server
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
+- **FastAPI Server**: Validates requests, downloads data, spawns worker containers
+- **Worker Containers**: Isolated Docker containers that execute user strategies
+- **Security**: RestrictedPython + hardened Docker (no network, read-only, resource limits)
+- **Concurrency**: Max 3 simultaneous backtests with file locking for data downloads
 
 ## API Endpoints
 
@@ -41,10 +42,13 @@ POST /backtest
 **Request Body:**
 ```json
 {
-  "code": "strategy code as string",
-  "startDate": "2023-01-01",  // Optional, defaults to 2020-01-03
-  "endDate": "2023-12-31",    // Optional, defaults to 2024-01-03
-  "initialCash": 100000.0     // Optional, defaults to 100000.0
+  "code": "class MyStrategy(Strategy): ...",
+  "tickers": ["SPY", "QQQ"],
+  "start_date": "2023-01-01",
+  "end_date": "2023-12-31",
+  "initial_cash": 100000.0,
+  "commission_rate": 0.005,
+  "parameters": {}
 }
 ```
 
@@ -57,13 +61,12 @@ POST /backtest
       "initialCash": 100000.0,
       "finalEquity": 125000.0,
       "totalReturn": 25.0,
-      "numTrades": 42,
-      ...
+      "numTrades": 42
     },
     "metrics": {
       "sharpeRatio": 1.5,
       "maxDrawdown": 5.2,
-      ...
+      "winRate": 60.0
     },
     "equityCurve": [...],
     "orders": [...]
@@ -71,41 +74,57 @@ POST /backtest
 }
 ```
 
-## Example Request
+## Example Strategy
 
-```bash
-curl -X POST http://localhost:8000/backtest \
-  -H "Content-Type: application/json" \
-  -d @example-request.json
+```python
+from hqg_algorithms import Strategy, Cadence
+
+class MomentumStrategy(Strategy):
+    def universe(self):
+        return ['SPY']
+
+    def cadence(self):
+        return Cadence()
+
+    def on_data(self, slice, portfolio):
+        spy = slice.get('SPY')
+        if spy and spy.close > spy.open:
+            return {'SPY': 1.0}  # 100% allocation
+        return {'SPY': 0.0}  # No allocation
 ```
+
+## Security Features
+
+- **RestrictedPython**: Blocks imports, file I/O, system calls at compile-time
+- **Docker Isolation**: `--network=none`, `--read-only`, `--cap-drop=ALL`
+- **Resource Limits**: 512MB RAM, 1 CPU core, 100 process limit per backtest
+- **Concurrency Control**: Max 3 concurrent backtests, file locking for downloads
+- **Automatic Cleanup**: Worker containers deleted after execution
 
 ## API Documentation
 
-Once the server is running, visit:
+Once running, visit:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
-## Integration with Dashboard
-
-Your dashboard can make requests like:
+## Integration Example
 
 ```javascript
 const response = await fetch('http://localhost:8000/backtest', {
   method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     code: strategyCode,
-    startDate: '2023-01-01',
-    endDate: '2023-12-31',
-    initialCash: 100000
+    tickers: ['SPY', 'QQQ'],
+    start_date: '2023-01-01',
+    end_date: '2023-12-31',
+    initial_cash: 100000,
+    commission_rate: 0.005
   })
 });
 
 const result = await response.json();
 if (result.success) {
-  // Use result.data.summary, result.data.metrics, etc.
+  console.log(result.data.summary);
 }
 ```
-

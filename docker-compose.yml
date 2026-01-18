@@ -1,16 +1,18 @@
 version: '3.8'
 
 services:
-  backtester-api:
+  api:
     build:
       context: .
-      dockerfile: api/Dockerfile
+      dockerfile: api/Dockerfile.api
     container_name: hqg-backtester-api
     ports:
       - "8000:8000"
     volumes:
-      # Mount database directory for persistence
-      - ./data:/app/data
+      # Mount Docker socket to spawn worker containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount data directory as read-only for data access
+      - ./data:/data:ro
     environment:
       - PYTHONPATH=/app
     restart: unless-stopped

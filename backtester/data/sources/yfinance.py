@@ -40,4 +40,6 @@ class YFinanceDataSource(BaseDataSource):
             return self.normalize_dataframe(df)
             
         except Exception as e:
+            # Log the error for debugging but don't expose it
+            print(f"YFinance download error for {symbol}: {str(e)[:100]}")
             return None

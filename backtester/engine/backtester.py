@@ -15,11 +15,11 @@ class Backtester:
     def __init__(self, 
                  data_path=None,
                  algorithm_class=None,
-                 initial_cash=100000.0,
+                 initial_cash=10000.0,
                  commission_rate=0.005,
                  slippage_bps=10,
                  max_volume_pct=0.1,
-                 allow_shorting=True):
+                 allow_shorting=False):
         if data_path is None:
             # Default to root-level data/ directory
             data_path = Path(__file__).parent.parent.parent / "data"

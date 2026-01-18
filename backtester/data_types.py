@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 from datetime import datetime
 from enum import Enum, auto
 
@@ -7,8 +7,7 @@ class Resolution(Enum):
     Daily = auto()
 
 
-@dataclass
-class TradeBar:
+class TradeBar(BaseModel):
     symbol: str
     end_time: datetime
     open: float

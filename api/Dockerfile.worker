@@ -1,0 +1,29 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt /app/requirements.txt
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create non-root user for sandboxing
+RUN useradd -m -u 1000 sandbox && \
+    mkdir -p /app /data && \
+    chown -R sandbox:sandbox /app
+
+# Copy the backtester package
+COPY backtester/ /app/backtester/
+
+# Copy the worker script
+COPY api/worker.py /app/worker.py
+
+# Set PYTHONPATH
+ENV PYTHONPATH="/app"
+
+# Switch to non-root user
+USER sandbox
+
+# Worker executes backtest and outputs JSON to stdout
+CMD ["python", "/app/worker.py"]

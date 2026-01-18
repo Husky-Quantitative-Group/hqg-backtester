@@ -2,17 +2,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY api/requirements.txt /app/requirements.txt
+# Install Docker CLI (needed to spawn worker containers)
+RUN apt-get update && \
+    apt-get install -y docker.io && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Copy requirements and install dependencies
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the backtester package
 COPY backtester/ /app/backtester/
 
-# Copy the API main file
+# Copy API files
 COPY api/main.py /app/main.py
+COPY api/helpers.py /app/helpers.py
+COPY api/docker_runner.py /app/docker_runner.py
 
 # Set PYTHONPATH
 ENV PYTHONPATH="/app"
