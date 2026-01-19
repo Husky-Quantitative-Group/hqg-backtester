@@ -1,7 +1,14 @@
+from ..config.logging_config import setup_logging
+from ..config.settings import settings
+import logging
+
+# before importing other modules
+setup_logging(settings.LOG_DIR)
+logger = logging.getLogger(__name__)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes import router
-from ..config.settings import settings
 from .middleware import TimeoutMiddleware, RateLimitMiddleware, RequestSizeLimitMiddleware
 
 app = FastAPI(title="Backtester API", version="1.0.0")

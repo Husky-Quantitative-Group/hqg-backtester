@@ -44,11 +44,11 @@ class BacktestHandler:
                 final_cash=result.final_cash,
                 equity_curve=result.equity_curve
             )
-            
+
         except Exception as e:
             logger.error(f"Backtest failed: {str(e)}", exc_info=True)
             raise
-            
+
         finally:
             # cleanup strat file
             if strategy_id:
