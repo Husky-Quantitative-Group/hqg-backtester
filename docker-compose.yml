@@ -1,16 +1,13 @@
-version: '3.8'
-
 services:
   backtester-api:
     build: .
+    env_file:
+      - .env
     container_name: hqg-backtester
     ports:
       - "8000:8000"
-    environment:
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
     volumes:
-      - ./src/strategies:/app/src/strategies
+      - ./src/strategy_temp:/app/src/strategy_temp    # TODO: add CRON job or equiv to wipe old files (save for debugging / checking for malicious attempts)
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
