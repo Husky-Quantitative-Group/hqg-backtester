@@ -13,7 +13,7 @@ class StrategyLoader:
     """Safely loads user-defined Strategy classes from code strings."""
     
     def __init__(self):
-        self.strategies_dir = Path(settings.STRATEGIES_DIR)
+        self.strategies_dir = Path(settings.TEMP_STRAT_DIR)
         self.strategies_dir.mkdir(exist_ok=True)
     
     def load_strategy(self, strategy_code: str, strategy_id: str = None) -> Type[Strategy]:
@@ -43,10 +43,6 @@ class StrategyLoader:
                 file_path
             )
             module = importlib.util.module_from_spec(spec)
-            
-            # add hqg_algorithms to the module's namespace?
-            #module.hqg_algorithms = sys.modules['src.core']
-            
             spec.loader.exec_module(module)
             
             # find Strategy subclass in module
@@ -59,6 +55,14 @@ class StrategyLoader:
             if file_path.exists():
                 file_path.unlink()
             raise ValueError(f"Failed to load strategy: {str(e)}")
+        
+        # When moving to Prod, uncomment to clean up every time
+        # finally:
+        #    try:
+        #        if file_path.exists():
+        #            file_path.unlink()
+        #    except OSError:
+        #        pass
     
     def _find_strategy_class(self, module) -> Type[Strategy]:
         """Find the Strategy subclass in the loaded module."""        

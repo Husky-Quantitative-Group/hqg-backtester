@@ -11,7 +11,9 @@ class BacktestRequest(BaseModel):
     @field_validator('strategy_code')
     @classmethod
     def validate_code(cls, v):
-        if len(v) > 100000:  # 100KB limit
+        max_bytes = 1_000_000  # 1 MB
+        num_bytes = len(v.encode('utf-8'))  # python has dynamic char sizing
+        if num_bytes > max_bytes:
             raise ValueError("Strategy code too large")
         return v
     
