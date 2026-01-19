@@ -2,5 +2,6 @@ __pycache__/
 .venv
 .env
 local/
-src/strategies/
+src/strategy_temp/
 .pytest*
+logs/
