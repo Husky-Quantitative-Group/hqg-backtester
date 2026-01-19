@@ -1,4 +1,4 @@
-fastapi==0.115.0
+fastapi>=0.128.0
 uvicorn==0.32.0
 pydantic==2.10.0
 hqg-algorithms
@@ -9,3 +9,4 @@ pydantic_settings
 httpx
 pytest
 pytest-asyncio
+requests

@@ -6,11 +6,11 @@
 hqg-backtester/
 ├── src/                      # Main application source code
 │   ├── api/                  # FastAPI REST endpoints
-│   ├── services/             # Business logic layer
-│   ├── models/               # Pydantic models (requests/responses)
 │   ├── config/               # Configuration management
+│   ├── models/               # Pydantic models (requests/responses)
+│   ├── services/             # Business logic layer
+│   ├── strategies/           # Cached Strategy code
 │   └── utils/                # Utilities (metrics, validators, etc.)
-├── deprecated/               # (Prev implementation)
 ├── tests/                    # Unit and integration tests
 ├── docker-compose.yml
 ├── requirements.txt
@@ -62,10 +62,6 @@ Pydantic models for API contracts.
 - **`strategy_loader.py`** - Strategy code loading/validation
 - **`validators.py`** - Input validation helpers
 
-## `/deprecated/` - Legacy Code
-
-Old implementation not currently in use. Kept for reference.
-
 ## `/tests/` - Test Suite
 
 - **`test_backtester.py`** - Backtester service tests
@@ -79,15 +75,13 @@ POST /api/v1/backtest (with strategy_code, dates, capital)
   ↓
 src/api/routes.py → handlers.py (parse request)
   ↓
-Backtester.run()
+Backtester.run():
+  DataProvider.get_data()
+  for slice in data:
+    desired_allocations = Strategy.on_data(slice)
+    Portfolio.update(desired_allocations)
   ↓
-DataProvider.get_data() (called once)
-  ↓
-Strategy.on_data()  (in backtester loop)
-  ↓
-Portfolio state updates (in backtester loop)
-  ↓
-calculate_metrics() & calculate_equity_curve() (after loop)
+calculate_metrics()
   ↓
 BacktestResponse (trades, metrics, equity curve)
 ```
