@@ -5,6 +5,7 @@ hqg-algorithms
 numpy
 pandas
 yfinance
+pandas_market_calendars
 pydantic_settings
 httpx
 pytest

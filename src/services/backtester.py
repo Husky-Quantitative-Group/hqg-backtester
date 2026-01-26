@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+import pandas_market_calendars as mcal
 from hqg_algorithms import Strategy, Slice, PortfolioView, Cadence
 from ..models.portfolio import Portfolio
 from ..models.response import BacktestResult, Trade
@@ -13,6 +14,7 @@ class Backtester:
     
     def __init__(self, data_provider: Optional[BaseDataProvider] = None):
         self.data_provider = data_provider or YFDataProvider()
+        self.market_calendar = mcal.get_calendar("NYSE")
     
     # TODO: add different types of fee structures (alpaca vs ibkr vs flat)
     async def run(self, strategy: Strategy, start_date: datetime, end_date: datetime, initial_capital: float = 10000.0) -> BacktestResult:
@@ -31,6 +33,8 @@ class Backtester:
         symbols = strategy.universe()
         cadence = strategy.cadence()
         
+        # note: YF anchors weeks on whatever day you start on
+        #  if you start on a weds, Open = last Thurs open and Close = this Weds close
         data = self.data_provider.get_data(
             symbols=symbols,
             start_date=start_date,
@@ -67,6 +71,12 @@ class Backtester:
 
     
     # TODO duckdb?
+    # NOTE: previous implementation is decide on bar close, execute on bar + exec_lag_bars close
+    #   this does not work when cadence is > hourly
+    # The other easy simplification is to assume immediate trading, which we do below.
+
+    # NOTE: the order dates/times are not exact if weekly/monthly. Trading on Jan 1st means it traded on the close of the most recent trading day.
+    # TODO: make the order execution precise (also, note, YF is limited :( )
     def _run_loop(self, strategy: Strategy, data: pd.DataFrame, portfolio: Portfolio, cadence: Cadence) -> tuple[List[Trade], Dict]:
         """
         Core backtest loop
@@ -80,9 +90,10 @@ class Backtester:
         timestamps = data.index.unique()
         
         for i, timestamp in enumerate(timestamps):
-            if i < cadence.exec_lag_bars:
+            # to prevent edge case issues with current "immediate fill" implementation
+            if i == 0:
                 continue
-            
+
             # create data slice at decision time
             timestamp_data = data.loc[timestamp]
             slice_obj = self._create_slice(timestamp_data)
@@ -108,19 +119,22 @@ class Backtester:
             if target_weights is None:
                 continue
             
-            # calculate execution timestamp with lag
-            exec_index = i + cadence.exec_lag_bars
+
+            exec_index = i
+            # UNCOMMENT to calculate execution timestamp with lag
+            #exec_index = i + cadence.exec_lag_bars 
             if exec_index >= len(timestamps):
                 break
             
             exec_timestamp = timestamps[exec_index]
             exec_slice = self._create_slice(data.loc[exec_timestamp])
             exec_prices = self._get_prices(exec_slice, strategy.universe())
-            
+            trade_timestamp = self._get_trade_timestamp(exec_timestamp)
+
             new_trades = portfolio.rebalance(
                 target_weights,
                 exec_prices,
-                exec_timestamp
+                trade_timestamp
             )
             trades.extend(new_trades)
         
@@ -163,3 +177,19 @@ class Backtester:
         timestamp_data = data.loc[final_timestamp]
         slice_obj = self._create_slice(timestamp_data)
         return self._get_prices(slice_obj, symbols)
+    
+    def _get_trade_timestamp(self, bar_timestamp: pd.Timestamp) -> datetime:
+        """
+        Map a bar timestamp to the most recent trading day close at or before it (holiday edge case with weekly+ data).
+        If the bar label falls on a holiday/weekend, shift to the prior session close.
+        """
+        ts = pd.Timestamp(bar_timestamp).tz_localize(None)
+        schedule = self.market_calendar.schedule(
+            start_date=ts - timedelta(days=10),
+            end_date=ts
+        )
+        if schedule.empty:
+            return ts.to_pydatetime()
+
+        market_close = schedule["market_close"].iloc[-1]
+        return market_close.tz_localize(None).to_pydatetime()
