@@ -1,22 +1,32 @@
-version: '3.8'
-
 services:
   backtester-api:
     build:
       context: .
-      dockerfile: api/Dockerfile
-    container_name: hqg-backtester-api
-    ports:
-      - "8000:8000"
-    volumes:
-      # Mount database directory for persistence
-      - ./data:/app/data
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
+        http_proxy: ${HTTP_PROXY}
+        https_proxy: ${HTTPS_PROXY}
+        no_proxy: ${NO_PROXY}
+    env_file:
+      - .env
     environment:
-      - PYTHONPATH=/app
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - https_proxy=${HTTPS_PROXY}
+      - no_proxy=${NO_PROXY}
+    container_name: hqg-backtester
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./src/strategy_temp:/app/src/strategy_temp    # TODO: add CRON job or equiv to wipe old files (save for debugging / checking for malicious attempts)
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
+      start_period: 5s

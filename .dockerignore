@@ -1,4 +1,4 @@
-__pycache__
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -8,7 +8,7 @@ __pycache__
 *.egg-info
 dist
 build
-.venv
+.venv/
 venv/
 .env
 .git
@@ -16,10 +16,8 @@ venv/
 *.md
 .vscode
 .idea
-*.db-journal
-*.db-wal
-*.db-shm
 test_*.py
 *.log
 data/
-
+.pytest_cache
+logs
