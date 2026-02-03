@@ -3,10 +3,10 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from hqg_algorithms import Strategy, Slice, PortfolioView, Cadence
 from ..models.portfolio import Portfolio
-from ..models.response import BacktestResult, Trade
+from ..models.response import Trade
 from ..services.data_provider.base_provider import BaseDataProvider
 from ..services.data_provider.yf_provider import YFDataProvider
-from ..utils.metrics import calculate_metrics
+from ..validation.executor import RawExecutionResult
 
 
 class Backtester:
@@ -15,46 +15,42 @@ class Backtester:
         self.data_provider = data_provider or YFDataProvider()
     
     # TODO: add different types of fee structures (alpaca vs ibkr vs flat)
-    async def run(self, strategy: Strategy, start_date: datetime, end_date: datetime, initial_capital: float = 10000.0) -> BacktestResult:
+    async def run(self, strategy: Strategy, start_date: datetime, end_date: datetime, initial_capital: float = 10000.0) -> RawExecutionResult:
         """
         Run a backtest with the given strategy.
-        
+
         Args:
             strategy: Strategy instance to backtest
             start_date: Start date for backtest
             end_date: End date for backtest
             initial_capital: Starting capital (default: 10000)
-        
+
         Returns:
-            BacktestResult with trades, metrics, ohlc, and final portfolio state
+            RawExecutionResult with raw trades, equity curve, and final portfolio state.
+            Metrics are computed separately after validation.
         """
         symbols = strategy.universe()
         cadence = strategy.cadence()
-        
+
         data = self.data_provider.get_data(
             symbols=symbols,
             start_date=start_date,
             end_date=end_date,
             bar_size=cadence.bar_size
         )
-        
+
         portfolio = Portfolio(
             initial_cash=initial_capital,
             symbols=symbols
         )
-        
+
         trades, ohlc = self._run_loop(strategy, data, portfolio, cadence)
-        
+
         final_prices = self._get_final_prices(data, symbols)
-        metrics = calculate_metrics(portfolio, trades, initial_capital, self.data_provider, cadence.bar_size)
-    
-        # timestamp to str for pydantic
-        equity_curve = {str(ts): value for ts, value in portfolio.equity_curve.items()}
-        
-        return BacktestResult(
-            trades=trades,
-            metrics=metrics,
-            equity_curve=equity_curve,
+
+        return RawExecutionResult(
+            trades=[t.model_dump() for t in trades],
+            equity_curve={str(ts): value for ts, value in portfolio.equity_curve.items()},
             ohlc=ohlc,
             final_value=portfolio.get_total_value(final_prices),
             final_positions=portfolio.positions.copy(),

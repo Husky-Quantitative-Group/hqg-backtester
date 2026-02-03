@@ -1,5 +1,6 @@
 from typing import Dict, List
 from datetime import datetime
+from uuid import uuid4
 from .response import OrderType, Trade
 from hqg_algorithms import Slice
 
@@ -93,12 +94,12 @@ class Portfolio:
                 self.cash -= trade_value
                 
                 trades.append(Trade(
+                    id=str(uuid4()),
                     timestamp=timestamp,
                     symbol=symbol,
                     action=OrderType.BUY,
                     shares=shares_to_trade,
                     price=price,
-                    value=trade_value
                 ))
             
             elif shares_to_trade < 0:
@@ -109,12 +110,12 @@ class Portfolio:
                 self.cash += trade_value
                     
                 trades.append(Trade(
+                    id=str(uuid4()),
                     timestamp=timestamp,
                     symbol=symbol,
                     action=OrderType.SELL,
                     shares=shares_to_sell,
                     price=price,
-                    value=trade_value
                 ))
         
         return trades
