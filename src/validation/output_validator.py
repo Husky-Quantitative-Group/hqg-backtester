@@ -1,22 +1,22 @@
 from abc import ABC, abstractmethod
-from ..models.response import BacktestResponse, BacktestResult
+from .executor import RawExecutionResult
 
 
 class OutputValidator(ABC):
     """
-    This is the final security checkpoint. It ensures executor output
-    conforms to expected client-side schema.
+    Final security checkpoint. Ensures executor output
+    is sane before metrics are computed.
     """
 
     @abstractmethod
-    def validate(self, output: ExecutionResult) -> BacktestResult | BacktestResponse: #NOTE: I think either or can be used here
+    def validate(self, output: RawExecutionResult) -> RawExecutionResult:
         """
-        Validate raw executor output, prep for response back to client.
+        Validate raw executor output (no NaN, positive prices, etc).
 
         Args:
             output: Raw output from executor
 
         Returns:
-            Validated response model
+            Validated RawExecutionResult (same type, just sanity-checked)
         """
         pass
