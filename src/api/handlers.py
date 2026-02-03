@@ -1,7 +1,15 @@
 import logging
+from datetime import datetime
 from ..models.request import BacktestRequest
-from ..models.response import BacktestResponse
+from ..models.response import (
+    BacktestResponse,
+    BacktestParameters,
+    EquityStats,
+    EquityCandle,
+    Trade,
+)
 from ..utils.strategy_loader import StrategyLoader
+from ..utils.metrics import calculate_metrics
 from ..services.backtester import Backtester
 
 logger = logging.getLogger(__name__)
@@ -12,42 +20,82 @@ class BacktestHandler:
     def __init__(self):
         self.strategy_loader = StrategyLoader()
         self.backtester = Backtester()
-    
+
     async def handle_backtest(self, request: BacktestRequest) -> BacktestResponse:
 
         strategy_id = None
-        
+
         try:
             logger.info(f"Starting backtest: {request.start_date} to {request.end_date}")
-            
+
             strategy_class = self.strategy_loader.load_strategy(request.strategy_code)
             strategy = strategy_class()
             strategy_id = str(id(strategy))
-            
+
             logger.info(f"Loaded strategy with universe: {strategy.universe()}")
 
-            #NOTE: Below backtester execution is depricated. Going forward with the new validation system, execution will look like:
+            # TODO: Replace with validation pipeline:
             #   analyzed_request = StaticAnalyzer.analyze(request)
-            #   response = ExecutionOrchestrator.execute(analyzed_request)
-            #   return response (BacktestResponse)
+            #   raw_result = Executor.execute(analyzed_request)
+            #   validated_result = OutputValidator.validate(raw_result)
+            #   metrics = calculate_metrics(...)
+            #   return transform_to_response(validated_result, metrics, request)
 
-            result = await self.backtester.run(
+            raw_result = await self.backtester.run(
                 strategy=strategy,
                 start_date=request.start_date,
                 end_date=request.end_date,
                 initial_capital=request.initial_capital
             )
-            
-            logger.info(f"Backtest complete. Final Sharpe: ${result.metrics.sharpe_ratio:.2f}")
-            
+
+            # Reconstruct Trade objects from raw dicts
+            trades = [Trade(**t) for t in raw_result.trades]
+
+            # Parse equity curve keys back to datetime for metrics calculation
+            equity_curve_dt = {
+                datetime.fromisoformat(ts): val
+                for ts, val in raw_result.equity_curve.items()
+            }
+
+            # Compute metrics (single source of truth, after execution)
+            metrics = calculate_metrics(
+                equity_curve_data=equity_curve_dt,
+                trades=trades,
+                initial_capital=request.initial_capital,
+                data_provider=self.backtester.data_provider,
+            )
+
+            logger.info(f"Backtest complete. Sharpe: {metrics.sharpe:.2f}")
+
+            # Transform to frontend response format
+            net_profit = raw_result.final_value - request.initial_capital
+            total_volume = sum(t.price * t.amount for t in trades)
+
+            candles = [
+                EquityCandle(
+                    time=int(datetime.fromisoformat(ts).timestamp()),
+                    **ohlc_vals,
+                )
+                for ts, ohlc_vals in raw_result.ohlc.items()
+            ]
+
             return BacktestResponse(
-                trades=result.trades,
-                metrics=result.metrics,
-                final_value=result.final_value,
-                ohlc=result.ohlc,
-                final_positions=result.final_positions,
-                final_cash=result.final_cash,
-                equity_curve=result.equity_curve
+                parameters=BacktestParameters(
+                    name=request.name or "Unnamed Backtest",
+                    starting_equity=request.initial_capital,
+                    start_date=request.start_date,
+                    end_date=request.end_date,
+                ),
+                metrics=metrics,
+                equity_stats=EquityStats(
+                    equity=raw_result.final_value,
+                    fees=0.0,  # TODO: implement fee tracking in portfolio
+                    net_profit=net_profit,
+                    return_pct=metrics.total_return * 100,
+                    volume=total_volume,
+                ),
+                candles=candles,
+                orders=trades,
             )
 
         except Exception as e:
@@ -55,11 +103,6 @@ class BacktestHandler:
             raise
 
         finally:
-            # cleanup strat file
             if strategy_id:
                 self.strategy_loader.cleanup_strategy(strategy_id)
                 logger.debug(f"Cleaned up strategy {strategy_id}")
-
-    # TODO
-    # async def handle_advanced_backtest(self, request):
-        # pass
