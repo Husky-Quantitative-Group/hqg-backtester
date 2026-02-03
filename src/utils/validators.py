@@ -1,6 +1,7 @@
 from ..config.settings import settings
 import ast
 
+# NOTE: Deprecated, to be used within validation/analysis.py.
 def validate_strategy_code(code: str) -> None:
     """Validate user-provided strategy code for security and correctness."""
     

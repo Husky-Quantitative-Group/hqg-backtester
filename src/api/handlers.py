@@ -25,7 +25,12 @@ class BacktestHandler:
             strategy_id = str(id(strategy))
             
             logger.info(f"Loaded strategy with universe: {strategy.universe()}")
-            
+
+            #NOTE: Below backtester execution is depricated. Going forward with the new validation system, execution will look like:
+            #   analyzed_request = StaticAnalyzer.analyze(request)
+            #   response = ExecutionOrchestrator.execute(analyzed_request)
+            #   return response (BacktestResponse)
+
             result = await self.backtester.run(
                 strategy=strategy,
                 start_date=request.start_date,
