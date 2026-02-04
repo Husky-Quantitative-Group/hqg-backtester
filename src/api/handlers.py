@@ -8,9 +8,8 @@ from ..models.response import (
     EquityCandle,
     Trade,
 )
-from ..utils.strategy_loader import StrategyLoader
 from ..utils.metrics import calculate_metrics
-from ..services.backtester import Backtester
+from ..validation.orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -18,35 +17,15 @@ logger = logging.getLogger(__name__)
 class BacktestHandler:
 
     def __init__(self):
-        self.strategy_loader = StrategyLoader()
-        self.backtester = Backtester()
+        self.orchestrator = Orchestrator()
 
     async def handle_backtest(self, request: BacktestRequest) -> BacktestResponse:
 
-        strategy_id = None
-
         try:
-            logger.info(f"Starting backtest: {request.start_date} to {request.end_date}")
+            logger.info(f"Starting backtest via orchestrator: {request.start_date} to {request.end_date}")
 
-            strategy_class = self.strategy_loader.load_strategy(request.strategy_code)
-            strategy = strategy_class()
-            strategy_id = str(id(strategy))
-
-            logger.info(f"Loaded strategy with universe: {strategy.universe()}")
-
-            # TODO: Replace with validation pipeline:
-            #   analyzed_request = StaticAnalyzer.analyze(request)
-            #   raw_result = Executor.execute(analyzed_request)
-            #   validated_result = OutputValidator.validate(raw_result)
-            #   metrics = calculate_metrics(...)
-            #   return transform_to_response(validated_result, metrics, request)
-
-            raw_result = await self.backtester.run(
-                strategy=strategy,
-                start_date=request.start_date,
-                end_date=request.end_date,
-                initial_capital=request.initial_capital
-            )
+            # Run full validation pipeline (parse → fetch → execute → validate)
+            raw_result = await self.orchestrator.run(request)
 
             # Reconstruct Trade objects from raw dicts
             trades = [Trade(**t) for t in raw_result.trades]
@@ -57,12 +36,12 @@ class BacktestHandler:
                 for ts, val in raw_result.equity_curve.items()
             }
 
-            # Compute metrics (single source of truth, after execution)
+            # Compute metrics (single source of truth, after validation)
             metrics = calculate_metrics(
                 equity_curve_data=equity_curve_dt,
                 trades=trades,
                 initial_capital=request.initial_capital,
-                data_provider=self.backtester.data_provider,
+                data_provider=self.orchestrator.data_provider,
             )
 
             logger.info(f"Backtest complete. Sharpe: {metrics.sharpe:.2f}")
@@ -101,8 +80,3 @@ class BacktestHandler:
         except Exception as e:
             logger.error(f"Backtest failed: {str(e)}", exc_info=True)
             raise
-
-        finally:
-            if strategy_id:
-                self.strategy_loader.cleanup_strategy(strategy_id)
-                logger.debug(f"Cleaned up strategy {strategy_id}")
