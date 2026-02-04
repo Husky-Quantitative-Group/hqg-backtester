@@ -5,8 +5,12 @@ from typing import Optional, Dict, List, Any
 
 
 class ExecutionPayload(BaseModel):
-    strategy_code: str = Field(..., description="Raw Python strategy code to execute")
+    strategy_code: str = Field(..., description="Raw Python strategy code to execute", min_length=10)
     name: Optional[str] = Field(default="Unnamed Backtest", description="Name for this backtest run")
+    start_date: datetime
+    end_date: datetime
+    initial_capital: float = Field(default=100000.0, description="Starting cash of Python strategy", gt=0)
+    market_data: Dict[str, Any] = Field(..., description="Pre-fetched OHLC data")
 
 
 class RawExecutionResult(BaseModel):
@@ -38,4 +42,4 @@ class Executor:
             Raw execution result (must be validated by OutputValidator before use)
         """
         # TODO: Implement actual execution logic
-        pass
+        raise NotImplementedError("Executor.execute() must be implemented")
