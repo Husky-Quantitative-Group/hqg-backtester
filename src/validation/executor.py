@@ -1,7 +1,14 @@
 # executor.py
+import subprocess
+import logging
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, Dict, List, Any
+
+logger = logging.getLogger(__name__)
+
+DOCKER_IMAGE = "hqg-backtester-sandbox"
+CONTAINER_TIMEOUT = 300  # 5 minutes
 
 
 class ExecutionPayload(BaseModel):
@@ -28,18 +35,68 @@ class RawExecutionResult(BaseModel):
 
 class Executor:
     """
-    Isolated execution environment for running validated user strategies.
+    Runs validated user strategies inside a hardened Docker container.
+    Communicates via stdin/stdout JSON.
     """
+
+    def __init__(self, image: str = DOCKER_IMAGE, timeout: int = CONTAINER_TIMEOUT):
+        self.image = image
+        self.timeout = timeout
 
     def execute(self, payload: ExecutionPayload) -> RawExecutionResult:
         """
-        Execute a strategy within the isolated environment.
-
-        Args:
-            payload: The execution payload containing code and market data
-
-        Returns:
-            Raw execution result (must be validated by OutputValidator before use)
+        Spawn a Docker container, send ExecutionPayload via stdin,
+        read RawExecutionResult from stdout.
         """
-        # TODO: Implement actual execution logic
-        raise NotImplementedError("Executor.execute() must be implemented")
+        payload_json = payload.model_dump_json()
+
+        cmd = [
+            "docker", "run",
+            "--rm",                         # remove container after exit
+            "--interactive",                # keep stdin open
+            "--network=none",               # no network access
+            "--read-only",                  # read-only filesystem
+            "--tmpfs", "/tmp:size=64m",     # small writable /tmp
+            "--memory=512m",                # memory limit
+            "--cpus=1",                     # cpu limit
+            "--pids-limit=64",              # process limit
+            "--security-opt=no-new-privileges",
+            "--cap-drop=ALL",
+            self.image,
+        ]
+
+        logger.info(f"Spawning container with image {self.image}")
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input=payload_json,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+            )
+
+            if result.stderr:
+                logger.warning(f"Container stderr: {result.stderr[:500]}")
+
+            if not result.stdout.strip():
+                return RawExecutionResult(
+                    final_value=0.0,
+                    final_cash=0.0,
+                    errors=[f"Container returned empty output. stderr: {result.stderr[:500]}"],
+                )
+
+            return RawExecutionResult.model_validate_json(result.stdout)
+
+        except subprocess.TimeoutExpired:
+            return RawExecutionResult(
+                final_value=0.0,
+                final_cash=0.0,
+                errors=[f"Container timed out after {self.timeout}s"],
+            )
+        except Exception as e:
+            return RawExecutionResult(
+                final_value=0.0,
+                final_cash=0.0,
+                errors=[f"Container execution failed: {str(e)}"],
+            )
