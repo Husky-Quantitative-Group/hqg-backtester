@@ -1,20 +1,116 @@
-from abc import abstractmethod, ABC
+from typing import List
+import ast
+import builtins
+
 from ..models.request import BacktestRequest
+from . import whitelists
 
-# NOTE: How will we show analysis results to the user? Will we just return them on failure? Would it be more intuitive to handle analysis on the client,
-#       or maybe even stream code input via websockets? For now we can opt for simplicity and just return results on failure, but this can be improved later.
-class StaticAnalyzer(ABC):
-    """
-    Analyze the user's code statically within our heavily restricted Python implementation.
-    Must pass this check to progress along the validation pipeline
 
-    Args:
-        request: The user's request. Code will be accessed via request.strategy_code
-    
-    Returns:
-        The user's request, if it makes it past this security check. If not, return necessary feedback.
+class AnalysisError:
     """
-    @abstractmethod
+    Error-handling model for more robust feedback. When parsing the users code,
+    we incrementally add whatever errors they might have, and return this list of
+    feedback back to the client.
+    """
+    def __init__(self):
+        self.errors: List[str] = []
+
+    def is_empty(self) -> bool:
+        """
+        Check if there are any errors to return
+        """
+        return len(self.errors) == 0
+    def add(self, message: str, line: int | None = None):
+        """
+        Add a new error message to the stack
+        """
+        location = f" (line {line})" if line else ""
+        self.errors.append(f"{message}{location}")
+
+class StaticAnalyzer:
+    """
+    Static analyzer using Python's AST module to heavily restrict user accessbility
+    """
+
     @classmethod
-    def analyze(cls, request: BacktestRequest) -> BacktestRequest | ErrorModel: #TODO: ErrorModel to be implemented
-        pass
+    def analyze(cls, request: BacktestRequest) -> BacktestRequest | AnalysisError:
+        """
+        Perform static analysis on strategy code.
+        """
+        errors = AnalysisError()
+        code = request.strategy_code
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError as e:
+            errors.add(f"Syntax error: {e.msg}", line=e.lineno)
+            return errors  # can't continue without valid AST
+        
+        cls._validate_nodes(tree, errors)
+        cls._validate_imports(tree, errors)
+        cls._validate_builtins(tree, errors)
+        cls._validate_attributes(tree, errors)
+        cls._validate_strategy_class(tree, errors)
+
+        if not errors.is_empty():
+            return errors
+
+        return request
+
+    @classmethod
+    def _validate_nodes(cls, tree: ast.AST, errors: AnalysisError) -> None:
+        """Ensure all AST nodes are in our whitelist."""
+        for node in ast.walk(tree):
+            if type(node) not in whitelists.ALLOWED_NODES:
+                errors.add(f"Disallowed syntax: {type(node).__name__}", line=getattr(node, "lineno", None))
+
+    @classmethod
+    def _validate_imports(cls, tree: ast.AST, errors: AnalysisError) -> None:
+        """Validate all imports are from allowed modules."""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    module_root = alias.name.split(".")[0]
+                    if module_root not in whitelists.ALLOWED_MODULES:
+                        errors.add(f"Import of '{alias.name}' is not allowed", line=node.lineno)
+
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    module_root = node.module.split(".")[0]
+                    if module_root not in whitelists.ALLOWED_MODULES:
+                        errors.add(f"Import from '{node.module}' is not allowed", line=node.lineno)
+
+    @classmethod
+    def _validate_builtins(cls, tree: ast.AST, errors: AnalysisError) -> None:
+        """Validate builtin function calls."""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                name = node.func.id
+                if name in whitelists.FORBIDDEN_BUILTINS:
+                    errors.add(f"Use of '{name}()' is forbidden", line=node.lineno)
+                elif name in dir(builtins):
+                    if name not in whitelists.ALLOWED_BUILTINS:
+                        errors.add(f"Builtin '{name}()' is not allowed", line=node.lineno)
+
+
+    @classmethod
+    def _validate_attributes(cls, tree: ast.AST, errors: AnalysisError) -> None:
+        """Check for forbidden attribute access"""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute):
+                if node.attr in whitelists.FORBIDDEN_ATTRIBUTES:
+                    errors.add(f"Access to '{node.attr}' is forbidden", line=node.lineno)
+
+    @classmethod
+    def _validate_strategy_class(cls, tree: ast.AST, errors: AnalysisError) -> None:
+        """Verify that the code defines a class inheriting from Strategy."""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                for base in node.bases:
+                    # class MyStrategy(Strategy)
+                    if isinstance(base, ast.Name) and base.id == "Strategy":
+                        return
+                    # class MyStrategy(hqg_algorithms.Strategy)
+                    if isinstance(base, ast.Attribute) and base.attr == "Strategy":
+                        return
+        errors.add("Code must define a class that inherits from Strategy")
