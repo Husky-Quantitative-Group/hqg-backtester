@@ -5,3 +5,4 @@ local/
 src/strategy_temp/
 .pytest*
 logs/
+data/cache/
