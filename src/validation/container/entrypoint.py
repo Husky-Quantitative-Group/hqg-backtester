@@ -1,33 +1,14 @@
 #!/usr/bin/env python3
 import sys
-import json
 import time
 import pandas as pd
 from datetime import datetime
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, List, Any, Union
 from uuid import uuid4
 from enum import Enum
+from typing import Dict, List, Any
+from ...models.execution import ExecutionPayload, RawExecutionResult
 
-
-class ExecutionPayload(BaseModel):
-    strategy_code: str = Field(..., description="Raw Python strategy code to execute", min_length=10)
-    name: Optional[str] = Field(default="Unnamed Backtest", description="Name for this backtest run")
-    start_date: datetime
-    end_date: datetime
-    initial_capital: float = Field(default=100000.0, description="Starting cash of Python strategy", gt=0)
-    market_data: Dict[str, Any] = Field(..., description="Pre-fetched OHLC data")
-
-
-class RawExecutionResult(BaseModel):
-    trades: List[Dict[str, Any]] = Field(default_factory=list, description="Raw trade data")
-    equity_curve: Dict[str, float] = Field(default_factory=dict, description="Timestamp -> equity mapping")
-    ohlc: Dict[str, Dict[str, float]] = Field(default_factory=dict, description="Timestamp -> portfolio OHLC")
-    final_value: float = Field(..., description="Final portfolio value")
-    final_cash: float = Field(..., description="Final cash balance")
-    final_positions: Dict[str, float] = Field(default_factory=dict, description="Final positions held")
-    execution_time: Optional[float] = Field(default=None, description="Execution time in seconds")
-    errors: List[str] = Field(default_factory=list, description="Any errors encountered during execution")
+from src.models.request import BacktestRequestError
 
 
 # ── Portfolio class (copied from src/models/portfolio.py) ──
@@ -196,6 +177,8 @@ def main():
         sys.exit(0)
 
     except Exception as e:
+        errors = BacktestRequestError()
+        errors.add(str(e))
         error_result = RawExecutionResult(
             trades=[],
             equity_curve={},
@@ -204,7 +187,7 @@ def main():
             final_cash=0.0,
             final_positions={},
             execution_time=0.0,
-            errors=[str(e)]
+            errors=errors
         )
         sys.stdout.write(error_result.model_dump_json())
         sys.exit(1)
@@ -227,7 +210,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
       "TSLA": { ... }
     }
     """
-    errors = []
+    errors = BacktestRequestError()
 
     try:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
@@ -272,7 +255,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        errors.append(f"Strategy execution error: {str(e)}")
+        errors.add(f"Strategy execution error: {str(e)}")
         return {
             "trades": [],
             "equity_curve": {},
