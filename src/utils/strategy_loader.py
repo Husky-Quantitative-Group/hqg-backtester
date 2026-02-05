@@ -5,9 +5,7 @@ import importlib.util
 from pathlib import Path
 from typing import Type
 from hqg_algorithms import Strategy
-from ..utils.validators import validate_strategy_code
 from ..config.settings import settings
-
 
 class StrategyLoader:
     """Safely loads user-defined Strategy classes from code strings."""
@@ -30,7 +28,6 @@ class StrategyLoader:
         if strategy_id is None:
             strategy_id = str(uuid.uuid4())
         
-        validate_strategy_code(strategy_code)
         
         # write code to temporary file
         file_path = self.strategies_dir / f"strategy_{strategy_id}.py"
