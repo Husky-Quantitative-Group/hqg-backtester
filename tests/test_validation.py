@@ -182,22 +182,15 @@ class TestValidationSecurity:
 @pytest.mark.integration
 class TestValidationIntegration:
     """
-    End-to-end pipeline tests with REAL infrastructure.
+    End-to-end pipeline tests with real infrastructure.
 
-    Requirements:
-    - Docker running with hqg-backtester-sandbox image built
-    - Network access for Yahoo Finance API
-    - Run with: pytest tests/test_validation.py -v -m integration
+    These tests verify the full execution path:
+    Static analysis -> Strategy loading -> Market data fetch -> Docker execution -> Output validation
+    
+    Run with: pytest tests/test_validation.py -v -m integration
     """
-
     @pytest.mark.asyncio
-    async def test_valid_strategy_full_pipeline(self):
-        """
-        Real dashboard request through the full pipeline.
-
-        Tests: Static analysis -> Strategy loading -> Market data fetch ->
-               Docker execution -> Output validation
-        """
+    async def test_buyhold_strategy_executes(self):
         handler = BacktestHandler()
         request = make_dashboard_request(
             strategy_code=TestStrategies.VALID_BUYHOLD,
@@ -208,71 +201,264 @@ class TestValidationIntegration:
 
         result = await handler.handle_backtest(request)
 
-        # Verify we got real results
         assert result.metrics is not None
         assert result.equity_stats is not None
-        assert result.parameters.initial_capital == 10000.0
+        assert result.parameters.starting_equity == 10000.0
+        assert len(result.candles) > 0, "Should have equity curve data"
 
     @pytest.mark.asyncio
-    async def test_malicious_os_import_rejected(self):
-        """
-        Malicious code with os import should be rejected at static analysis.
-        Should never reach Docker execution.
-        """
+    async def test_sma_strategy_executes(self):
         handler = BacktestHandler()
-        request = make_dashboard_request(TestStrategies.MALICIOUS_OS_IMPORT)
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_SMA,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 6, 1),
+            initial_capital=50000.0,
+        )
 
-        with pytest.raises(Exception) as exc_info:
-            await handler.handle_backtest(request)
+        result = await handler.handle_backtest(request)
 
-        # Should fail with validation error, not execution error
-        assert "Import" in str(exc_info.value) or "analysis" in str(exc_info.value).lower()
+        assert result.metrics is not None
+        assert result.metrics.total_orders >= 0, "SMA strategy may generate trades"
+        assert result.parameters.starting_equity == 50000.0
 
     @pytest.mark.asyncio
-    async def test_malicious_eval_rejected(self):
-        """
-        Code using eval() should be rejected at static analysis.
-        """
+    async def test_multiasset_strategy_executes(self):
         handler = BacktestHandler()
-        request = make_dashboard_request(TestStrategies.MALICIOUS_EVAL)
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_MULTIASSET,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 3, 1),
+            initial_capital=100000.0,
+        )
 
-        with pytest.raises(Exception) as exc_info:
-            await handler.handle_backtest(request)
+        result = await handler.handle_backtest(request)
 
-        assert "eval" in str(exc_info.value).lower() or "forbidden" in str(exc_info.value).lower()
+        assert result.metrics is not None
+        assert result.equity_stats is not None
+        assert len(result.orders) > 0, "Multi-asset strategy should generate orders"
 
     @pytest.mark.asyncio
-    async def test_malicious_file_access_rejected(self):
-        """
-        Code using open() should be rejected at static analysis.
-        """
+    async def test_small_capital_execution(self):
         handler = BacktestHandler()
-        request = make_dashboard_request(TestStrategies.MALICIOUS_OPEN_FILE)
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 3, 1),
+            initial_capital=500.0,
+        )
 
-        with pytest.raises(Exception) as exc_info:
-            await handler.handle_backtest(request)
+        result = await handler.handle_backtest(request)
 
-        assert "open" in str(exc_info.value).lower() or "forbidden" in str(exc_info.value).lower()
+        assert result.parameters.starting_equity == 500.0
+        assert result.equity_stats.equity > 0
 
     @pytest.mark.asyncio
-    async def test_syntax_error_rejected(self):
-        """
-        Code with syntax errors should fail at static analysis.
-        """
-        bad_syntax = """
+    async def test_large_capital_execution(self):
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 3, 1),
+            initial_capital=1_000_000.0,
+        )
+
+        result = await handler.handle_backtest(request)
+
+        assert result.parameters.starting_equity == 1_000_000.0
+        assert result.equity_stats.equity > 0
+
+    @pytest.mark.asyncio
+    async def test_commission_affects_results(self):
+        handler = BacktestHandler()
+        request_zero = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 3, 1),
+            initial_capital=10000.0,
+            commission=0.0,
+        )
+        result_zero = await handler.handle_backtest(request_zero)
+
+        request_high = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 3, 1),
+            initial_capital=10000.0,
+            commission=0.01,
+        )
+        result_high = await handler.handle_backtest(request_high)
+
+        # Higher commission should result in lower or equal final equity
+        assert result_high.equity_stats.fees >= result_zero.equity_stats.fees
+
+    @pytest.mark.asyncio
+    async def test_short_backtest_period(self):
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2024, 1, 2),
+            end_date=datetime(2024, 1, 15),  # ~2 weeks
+            initial_capital=10000.0,
+        )
+
+        result = await handler.handle_backtest(request)
+
+        assert result.metrics is not None
+        assert len(result.candles) > 0
+
+    @pytest.mark.asyncio
+    async def test_long_backtest_period(self):
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2023, 1, 1),
+            end_date=datetime(2024, 1, 1),  # 1 year
+            initial_capital=10000.0,
+        )
+
+        result = await handler.handle_backtest(request)
+
+        assert result.metrics is not None
+        assert len(result.candles) > 100, "Year-long backtest should have many data points"
+
+    @pytest.mark.asyncio
+    async def test_response_contains_all_metrics(self):
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 6, 1),
+            initial_capital=10000.0,
+        )
+
+        result = await handler.handle_backtest(request)
+
+        assert hasattr(result.metrics, 'sharpe')
+        assert hasattr(result.metrics, 'sortino')
+        assert hasattr(result.metrics, 'max_drawdown')
+        assert hasattr(result.metrics, 'total_return')
+        assert hasattr(result.metrics, 'win_rate')
+        assert hasattr(result.metrics, 'total_orders')
+
+    @pytest.mark.asyncio
+    async def test_equity_candles_have_ohlc(self):
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_BUYHOLD,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 3, 1),
+            initial_capital=10000.0,
+        )
+
+        result = await handler.handle_backtest(request)
+
+        assert len(result.candles) > 0
+        candle = result.candles[0]
+        assert hasattr(candle, 'time')
+        assert hasattr(candle, 'open')
+        assert hasattr(candle, 'high')
+        assert hasattr(candle, 'low')
+        assert hasattr(candle, 'close')
+        # OHLC invariant: low <= open,close <= high
+        assert candle.low <= candle.open <= candle.high
+        assert candle.low <= candle.close <= candle.high
+
+    @pytest.mark.asyncio
+    async def test_orders_have_required_fields(self):
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=TestStrategies.VALID_MULTIASSET,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 3, 1),
+            initial_capital=50000.0,
+        )
+
+        result = await handler.handle_backtest(request)
+
+        if len(result.orders) > 0:
+            order = result.orders[0]
+            assert hasattr(order, 'id')
+            assert hasattr(order, 'timestamp')
+            assert hasattr(order, 'ticker')
+            assert hasattr(order, 'type')
+            assert hasattr(order, 'price')
+            assert hasattr(order, 'amount')
+            assert order.price > 0, "Order price should be positive"
+            assert order.amount > 0, "Order amount should be positive"
+
+    @pytest.mark.asyncio
+    async def test_runtime_division_by_zero(self):
+        """Strategy with division by zero should fail gracefully at runtime."""
+        runtime_error_strategy = '''
 from hqg_algorithms import Strategy
 
-class BrokenStrategy(Strategy
+class DivZeroStrategy(Strategy):
     def universe(self):
         return ["AAPL"]
-"""
+
+    def on_data(self, data, portfolio):
+        x = 1 / 0  # Runtime error
+        return {"AAPL": 1.0}
+'''
         handler = BacktestHandler()
-        request = make_dashboard_request(bad_syntax)
+        request = make_dashboard_request(
+            strategy_code=runtime_error_strategy,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 2, 1),
+        )
 
         with pytest.raises(Exception) as exc_info:
             await handler.handle_backtest(request)
 
-        assert "syntax" in str(exc_info.value).lower()
+        assert "division" in str(exc_info.value).lower() or "zero" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_runtime_invalid_symbol(self):
+        """Strategy requesting invalid symbol should handle gracefully."""
+        invalid_symbol_strategy = '''
+from hqg_algorithms import Strategy
+
+class InvalidSymbolStrategy(Strategy):
+    def universe(self):
+        return ["NOTAREALSYMBOL12345"]
+
+    def on_data(self, data, portfolio):
+        return {"NOTAREALSYMBOL12345": 1.0}
+'''
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=invalid_symbol_strategy,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 2, 1),
+        )
+        with pytest.raises(Exception):
+            await handler.handle_backtest(request)
+
+    @pytest.mark.asyncio
+    async def test_runtime_invalid_weight(self):
+        """Strategy returning weights > 1.0 should fail at execution."""
+        overweight_strategy = '''
+from hqg_algorithms import Strategy
+
+class OverweightStrategy(Strategy):
+    def universe(self):
+        return ["AAPL", "MSFT"]
+
+    def on_data(self, data, portfolio):
+        return {"AAPL": 0.8, "MSFT": 0.8}  # Sum > 1.0
+'''
+        handler = BacktestHandler()
+        request = make_dashboard_request(
+            strategy_code=overweight_strategy,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 2, 1),
+        )
+
+        with pytest.raises(Exception) as exc_info:
+            await handler.handle_backtest(request)
+
+        assert "weight" in str(exc_info.value).lower() or "1.0" in str(exc_info.value)
 
 async def ProfileTests():
     """
@@ -294,7 +480,7 @@ async def ProfileTests():
         br = await handler.handle_backtest(request=request)
     profiler.disable()
     print(br.parameters, br.equity_stats, br.metrics)
-    # Print summary stats
+
     stream = io.StringIO()
     stats = pstats.Stats(profiler, stream=stream)
     stats.sort_stats("cumulative")
