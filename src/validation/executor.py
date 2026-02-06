@@ -40,6 +40,7 @@ class Executor:
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
             self.image,
+            "python", "-m", "src.validation.container.entrypoint",  # run our execution container, not the web-app
         ]
 
         logger.info(f"Spawning container with image {self.image}")
