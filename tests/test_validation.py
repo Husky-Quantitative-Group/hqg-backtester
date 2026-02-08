@@ -498,6 +498,8 @@ if __name__ == "__main__":
     Run profiling when executed directly.
 
     Usage:
+        docker build -t hqg-backtester .
+        docker build -t hqg-backtester-sandbox .
         python -m tests/test_validation.py
 
     For pytest:
