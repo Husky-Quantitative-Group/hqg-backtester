@@ -11,3 +11,6 @@ httpx
 pytest
 pytest-asyncio
 requests
+cvxpy
+pyarrow
+fastparquet
