@@ -1,14 +1,3 @@
-# tests.test_analysis
-"""
-Static analyzer unit tests with line profiling.
-
-Run tests:
-    pytest tests/test_analysis.py -v
-
-Run with profiling:
-    python -m kernprof -l -v tests/test_analysis.py
-"""
-
 import pytest
 from datetime import datetime
 
@@ -16,24 +5,13 @@ from src.validation.analysis import StaticAnalyzer, AnalysisError
 from src.models.request import BacktestRequest
 from tests.test_strategies.pytest_strategies import TestStrategies
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Test Fixtures
-# ─────────────────────────────────────────────────────────────────────────────
-
 def make_request(code: str) -> BacktestRequest:
-    """Helper to create a BacktestRequest with given strategy code."""
     return BacktestRequest(
         strategy_code=code,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2021, 1, 1),
         initial_capital=10000.0,
     )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests - Valid Code
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestValidStrategies:
     """Test that valid strategy code passes analysis."""
@@ -63,11 +41,6 @@ class TestValidStrategies:
 
         assert isinstance(result, BacktestRequest)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests - Syntax Errors
-# ─────────────────────────────────────────────────────────────────────────────
-
 class TestSyntaxErrors:
     def test_invalid_syntax(self):
         """Syntax errors should be caught."""
@@ -84,11 +57,6 @@ class TestSyntaxErrors:
 
         assert isinstance(result, AnalysisError)
         assert any("line" in e for e in result.errors)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests - Forbidden Imports
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestForbiddenImports:
     @pytest.mark.parametrize("code,module", [
@@ -135,11 +103,6 @@ class S(Strategy):
         result = StaticAnalyzer.analyze(request)
 
         assert isinstance(result, AnalysisError)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests - Forbidden Builtins
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestForbiddenBuiltins:
     """Test that forbidden builtin calls are rejected."""
@@ -190,11 +153,6 @@ class S(Strategy):
 
         assert isinstance(result, AnalysisError)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests - Forbidden Attributes
-# ─────────────────────────────────────────────────────────────────────────────
-
 class TestForbiddenAttributes:
     """Test that forbidden attribute access is rejected."""
 
@@ -205,7 +163,6 @@ class TestForbiddenAttributes:
         (TestStrategies.MALICIOUS_MRO_ACCESS, "__mro__"),
     ])
     def test_forbidden_attribute(self, code: str, attr: str):
-        """Forbidden attribute access should be rejected."""
         request = make_request(code)
         result = StaticAnalyzer.analyze(request)
 
@@ -214,21 +171,13 @@ class TestForbiddenAttributes:
         assert any(attr in e and "forbidden" in e for e in result.errors)
 
     def test_bases_forbidden(self):
-        """__bases__ access should be forbidden."""
         request = make_request(TestStrategies.MALICIOUS_BUILTINS_VIA_CLASS)
         result = StaticAnalyzer.analyze(request)
 
         assert isinstance(result, AnalysisError)
         assert any("__bases__" in e or "__class__" in e for e in result.errors)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests - Missing Strategy Class
-# ─────────────────────────────────────────────────────────────────────────────
-
 class TestMissingStrategy:
-    """Test that missing Strategy class is caught."""
-
     def test_no_strategy_class(self):
         request = make_request(TestStrategies.MALICIOUS_NO_STRATEGY)
         result = StaticAnalyzer.analyze(request)
@@ -249,10 +198,6 @@ class TestMissingStrategy:
 
         assert isinstance(result, AnalysisError)
         assert any("Strategy" in e for e in result.errors)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Performance Profiling
-# ─────────────────────────────────────────────────────────────────────────────
 
 VALID_STRATEGIES = [
     ("minimal", TestStrategies.VALID_MINIMAL),
