@@ -10,10 +10,13 @@ ALLOWED_MODULES: set[str] = {
     "pandas",
     "math",
     "statistics",
+    # Optimization
+    "cvxpy",
     # Technical analysis
     "talib",
     # HQG framework
     "hqg_algorithms",
+    "src",
     # Standard library (safe)
     "datetime",
     "typing",
