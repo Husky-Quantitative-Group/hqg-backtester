@@ -1,6 +1,6 @@
 import math
 import logging
-from .executor import RawExecutionResult
+from ..models.execution import RawExecutionResult
 from ..models.request import BacktestRequestError, ExecutionException
 
 logger = logging.getLogger(__name__)
