@@ -188,7 +188,8 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
 
         # Enforce USER role
         roles = payload["roles"]
-        if "USER" not in roles:
+        allowed_roles = {"PUBLIC", "MEMBER", "ADMIN"}
+        if not allowed_roles.intersection(roles):
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content={"detail": "Forbidden"},
