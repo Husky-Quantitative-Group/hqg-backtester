@@ -341,7 +341,7 @@ class TestIntegration:
 
 
 @pytest.mark.integration
-class TestLoad:
+class TestLoad: # TODO: Test a wider variety of strategies
     """
     Simulate N concurrent users submitting backtest requests simultaneously.
     """
@@ -417,7 +417,7 @@ class TestLoad:
 
         print(f"Load Test: {self.N} requests completed in {_elapsed:.2f}s")
 @pytest.mark.integration
-class TestStress:
+class TestStress: # TODO: Test a wider variety of strategies
     """
     Simulate N concurrent users submitting backtest requests simultaneously.
     """

@@ -7,7 +7,7 @@ from ..models.portfolio import Portfolio
 from ..models.response import Trade
 from ..services.data_provider.base_provider import BaseDataProvider
 from ..services.data_provider.yf_provider import YFDataProvider
-from ..validation.executor import RawExecutionResult
+from ..execution.executor import RawExecutionResult
 
 
 class Backtester:
