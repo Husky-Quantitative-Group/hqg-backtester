@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from src.models.request import BacktestRequest
 from src.models.execution import RawExecutionResult
-from src.validation.analysis import StaticAnalyzer
+from src.execution.analysis import StaticAnalyzer
 from src.api.handlers import BacktestHandler
 from src.api.server import app
 from tests.test_strategies.pytest_strategies import TestStrategies
@@ -541,10 +541,10 @@ if __name__ == "__main__":
     Usage:
         docker build -t hqg-backtester .
         docker build -t hqg-backtester-sandbox .
-        python -m tests.test_validation
+        python -m tests.test_execution
 
     For pytest:
-        pytest tests/test_validation.py -v
+        pytest tests/test_execution.py -v
     """
     import asyncio
 

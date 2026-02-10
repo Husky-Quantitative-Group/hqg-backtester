@@ -9,7 +9,7 @@ from ..models.response import (
     Trade,
 )
 from ..utils.metrics import calculate_metrics
-from ..validation.orchestrator import Orchestrator
+from ..execution.orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
 
