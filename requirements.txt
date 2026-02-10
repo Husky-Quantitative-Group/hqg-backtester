@@ -12,3 +12,4 @@ pytest
 pytest-asyncio
 requests
 PyJWT
+cryptography

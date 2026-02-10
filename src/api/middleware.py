@@ -117,11 +117,10 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
                     cookie = None
                 if cookie and "hqg_auth_token" in cookie:
                     token = cookie["hqg_auth_token"].value or None
-
         if not token:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "Unauthorized1"},
+                content={"detail": "Unauthorized"},
             )
 
         # Read token header to select JWKS by kid
@@ -129,18 +128,16 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
             header = jwt.get_unverified_header(token)
         except jwt.PyJWTError:
             header = None
-
         if not header:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "Unauthorized2"},
+                content={"detail": "Unauthorized"},
             )
 
         kid = header.get("kid")
 
         # Fetch JWKS (cached)
         jwks = self._get_jwks(self.jwks_url)
-
         # Choose correct kid from JWKS.json
         keys = jwks.get("keys") or []
         jwk = next((key for key in keys if key.get("kid") == kid), None)
@@ -148,7 +145,7 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
         if not jwk:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "Unauthorized3"},
+                content={"detail": "Unauthorized"},
             )
 
         # Build public key
@@ -160,7 +157,7 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
         if not public_key:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "Unauthorized4"},
+                content={"detail": "Unauthorized"},
             )
 
         # Verify token signature and claims
@@ -177,7 +174,7 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
         if payload is None:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "Unauthorized5"},
+                content={"detail": "Unauthorized"},
             )
 
         # Validate subject
@@ -186,7 +183,7 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
         if not netid:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "Unauthorized6"},
+                content={"detail": "Unauthorized"},
             )
 
         # Enforce USER role
