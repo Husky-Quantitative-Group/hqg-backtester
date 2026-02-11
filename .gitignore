@@ -5,3 +5,5 @@ local/
 src/strategy_temp/
 .pytest*
 logs/
+output.prof
+profile.py
