@@ -346,7 +346,7 @@ class TestLoad: # TODO: Test a wider variety of strategies
     Simulate N concurrent users submitting backtest requests simultaneously.
     """
 
-    N = 5
+    N = 12
 
     @pytest.mark.asyncio
     async def test_concurrent_backtest_requests(self):

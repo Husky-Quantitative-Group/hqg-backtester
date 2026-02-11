@@ -29,7 +29,7 @@ class Orchestrator:
         → RawExecutionResult (ready for metrics)
     """
 
-    _semaphore = asyncio.Semaphore(5)  # max 5 concurrent backtests
+    _semaphore = asyncio.Semaphore(13)  # 13 maximum backtests at a time (one for each member)
 
     def __init__(self):
         self.strategy_loader = StrategyLoader()
@@ -92,7 +92,7 @@ class Orchestrator:
                 )
                 
                 # Execute our payload
-                raw_result = self.executor.execute(payload)
+                raw_result = await asyncio.to_thread(self.executor.execute, payload)
                 
                 if not raw_result.errors.is_empty():
                     raise ExecutionException(raw_result.errors)
