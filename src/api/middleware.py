@@ -108,16 +108,6 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
         # Read auth token from cookies
         token = request.cookies.get("hqg_auth_token")
         if not token:
-            cookie_header = request.headers.get("cookie")
-            if cookie_header:
-                cookie = SimpleCookie()
-                try:
-                    cookie.load(cookie_header)
-                except Exception:
-                    cookie = None
-                if cookie and "hqg_auth_token" in cookie:
-                    token = cookie["hqg_auth_token"].value or None
-        if not token:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"detail": "Unauthorized"},
@@ -188,7 +178,7 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
 
         # Enforce USER role
         roles = payload["roles"]
-        allowed_roles = {"PUBLIC", "MEMBER", "ADMIN"}
+        allowed_roles = {"PUBLIC", "FUND", "ADMIN"}
         if not allowed_roles.intersection(roles):
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
