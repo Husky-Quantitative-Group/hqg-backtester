@@ -60,8 +60,13 @@ class Executor:
             if not result.stdout.strip():
                 errors.add(f"Container returned empty output. stderr: {result.stderr[:500]}")
                 return RawExecutionResult(
+                    trades=[],
+                    equity_curve={},
+                    ohlc={},
                     final_value=0.0,
                     final_cash=0.0,
+                    final_positions={},
+                    execution_time=0.0,
                     errors=errors,
                 )
 
@@ -70,14 +75,24 @@ class Executor:
         except subprocess.TimeoutExpired:
             errors.add(f"Container timed out after {self.timeout}s")
             return RawExecutionResult(
+                trades=[],
+                equity_curve={},
+                ohlc={},
                 final_value=0.0,
                 final_cash=0.0,
+                final_positions={},
+                execution_time=0.0,
                 errors=errors,
             )
         except Exception as e:
             errors.add(f"Container execution failed: {str(e)}")
             return RawExecutionResult(
+                trades=[],
+                equity_curve={},
+                ohlc={},
                 final_value=0.0,
                 final_cash=0.0,
+                final_positions={},
+                execution_time=0.0,
                 errors=errors,
             )

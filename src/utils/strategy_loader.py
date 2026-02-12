@@ -52,12 +52,12 @@ class StrategyLoader:
             raise ValueError(f"Failed to load strategy: {str(e)}")
         
         # When moving to Prod, uncomment to clean up every time
-        # finally:
-        #    try:
-        #        if file_path.exists():
-        #            file_path.unlink()
-        #    except OSError:
-        #        pass
+        finally:
+           try:
+               if file_path.exists():
+                   file_path.unlink()
+           except OSError:
+               pass
     
     def _find_strategy_class(self, module) -> Type[Strategy]:
         """Find the Strategy subclass in the loaded module."""        

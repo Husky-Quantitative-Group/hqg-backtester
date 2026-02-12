@@ -44,8 +44,6 @@ class Orchestrator:
         Returns validated RawExecutionResult ready for metrics computation.
         """
         async with self._semaphore:
-            strategy_id = None
-
             try:
                 # Analyze Code
                 StaticAnalyzer.analyze(request)
@@ -55,7 +53,6 @@ class Orchestrator:
                 # Parse strategy code to extract universe + cadence
                 strategy_class = self.strategy_loader.load_strategy(request.strategy_code)
                 strategy = strategy_class()
-                strategy_id = str(id(strategy))
                 symbols = strategy.universe()
                 cadence = strategy.cadence()
 
@@ -105,8 +102,6 @@ class Orchestrator:
             except ValueError as e:
                 request.errors.add(str(e))
                 raise ExecutionException(request.errors)
-        if strategy_id:
-            self.strategy_loader.cleanup_strategy(strategy_id)
 
 
 def dataframe_to_json(data: pd.DataFrame, symbols: list[str]) -> Dict[str, Any]:
