@@ -2,12 +2,12 @@ import sys
 import time
 import pandas as pd
 from typing import Dict, Any
-from hqg_algorithms import Strategy
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
 from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
 from src.services.data_provider.mock_provider import MockDataProvider
+from src.utils.strategy_loader import StrategyLoader
 
 
 def main():
@@ -65,19 +65,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         data = json_to_dataframe(payload.market_data)
 
         # Load strategy class
-        strategy_namespace = {}
-        exec(payload.strategy_code, strategy_namespace)
-
-        # Find Strategy subclass
-        strategy_class = None
-        for name, obj in strategy_namespace.items():
-            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
-                strategy_class = obj
-                break
-
-        if strategy_class is None:
-            raise ValueError("No Strategy subclass found in strategy_code")
-
+        loader = StrategyLoader()
+        strategy_class = loader.load_strategy(payload.strategy_code)
         strategy = strategy_class()
 
         # Initialize portfolio
