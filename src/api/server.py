@@ -9,7 +9,12 @@ logger = logging.getLogger(__name__)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes import router
-from .middleware import TimeoutMiddleware, RateLimitMiddleware, RequestSizeLimitMiddleware
+from .middleware import (
+    TimeoutMiddleware,
+    RateLimitMiddleware,
+    RequestSizeLimitMiddleware,
+    HqgAuthMiddleware,
+)
 
 app = FastAPI(title="Backtester API", version="1.0.0")
 
@@ -25,6 +30,8 @@ app.add_middleware(
 app.add_middleware(TimeoutMiddleware, timeout_seconds=300)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
+if settings.HQG_DASH_JWKS_URL:
+    app.add_middleware(HqgAuthMiddleware, jwks_url=settings.HQG_DASH_JWKS_URL)
 
 app.include_router(router)
 
