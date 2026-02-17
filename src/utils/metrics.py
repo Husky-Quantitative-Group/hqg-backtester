@@ -4,7 +4,6 @@ import pandas as pd
 import yfinance as yf
 from typing import List, Dict, Tuple
 from datetime import datetime, timedelta
-from ..models.portfolio import Portfolio
 from ..models.response import Trade, PerformanceMetrics
 from math import erf, sqrt
 
@@ -13,14 +12,14 @@ from math import erf, sqrt
 # TODO: ensure daily returns map long term
 
 def calculate_metrics(
-        portfolio: Portfolio, 
-        trades: List[Trade], 
-        initial_capital: float, 
-        data_provider = None, 
+        equity_curve_data: Dict[datetime, float],
+        trades: List[Trade],
+        initial_capital: float,
+        data_provider = None,
         bar_size: timedelta = timedelta(days=1)
     ) -> PerformanceMetrics:
 
-    equity_curve = pd.Series(portfolio.equity_curve)
+    equity_curve = pd.Series(equity_curve_data)
     returns = equity_curve.pct_change().dropna()
     
     # total return
@@ -47,10 +46,7 @@ def calculate_metrics(
     # alpha and beta (using S&P 500 benchmark)
     alpha, beta = _calculate_alpha_beta(returns, equity_curve.index[0], equity_curve.index[-1], data_provider, bar_size)
 
-    ann_var, ann_std = _calculcate_var_std(returns)
-    
-
-# TODO: add longest drawdown recovery
+    # TODO: add longest drawdown recovery
     return PerformanceMetrics(
         total_return=total_return,
         annualized_return=annualized_return,
@@ -64,8 +60,6 @@ def calculate_metrics(
         psr=psr_value,
         avg_win=avg_win,
         avg_loss=avg_loss,
-        annualized_variance=ann_var,
-        annualized_std = ann_std
     )
 
 # TODO: get more precise daily_rf
@@ -114,14 +108,14 @@ def _calculate_win_rate(trades: List[Trade]) -> float:
     total_closed_trades = 0
     
     for trade in trades:
-        symbol = trade.symbol
+        symbol = trade.ticker
         if symbol not in position_pnl:
             position_pnl[symbol] = {'buys': [], 'sells': []}
         
-        if trade.action.value == 'buy':
-            position_pnl[symbol]['buys'].append((trade.price, trade.shares))
+        if trade.type.value == 'Buy':
+            position_pnl[symbol]['buys'].append((trade.price, trade.amount))
         else:  # sell
-            position_pnl[symbol]['sells'].append((trade.price, trade.shares))
+            position_pnl[symbol]['sells'].append((trade.price, trade.amount))
     
     # P&L for each symbol
     for symbol, sides in position_pnl.items():
@@ -166,14 +160,14 @@ def _calculate_avg_win_loss(trades: List[Trade]) -> Tuple[float, float]:
     losses = []
     
     for trade in trades:
-        symbol = trade.symbol
+        symbol = trade.ticker
         if symbol not in position_pnl:
             position_pnl[symbol] = {'buys': [], 'sells': []}
         
-        if trade.action.value == 'buy':
-            position_pnl[symbol]['buys'].append((trade.price, trade.shares))
+        if trade.type.value == 'Buy':
+            position_pnl[symbol]['buys'].append((trade.price, trade.amount))
         else:  # sell
-            position_pnl[symbol]['sells'].append((trade.price, trade.shares))
+            position_pnl[symbol]['sells'].append((trade.price, trade.amount))
     
     # P&L for each symbol
     for symbol, sides in position_pnl.items():
@@ -296,14 +290,3 @@ def _calculate_alpha_beta(returns: pd.Series, start_date: datetime, end_date: da
         return -1, -1
     
 
-def _calculcate_var_std(returns: pd.Series, periods_per_year: int = 252) -> Tuple[float, float]:
-    clean_returns = returns.dropna()
-    
-    period_var = clean_returns.var()
-    period_std = clean_returns.std()
-    
-    # Annualize (std scales with sqrt)
-    annualized_var = period_var * periods_per_year
-    annualized_std = period_std * (periods_per_year ** 0.5)
-    
-    return annualized_var, annualized_std
