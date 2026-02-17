@@ -15,6 +15,7 @@ class Backtester:
     def __init__(self, data_provider: Optional[BaseDataProvider] = None):
         self.data_provider = data_provider or YFDataProvider()
         self.market_calendar = mcal.get_calendar("NYSE")
+        self._schedule_cache = None
     
     # TODO: add different types of fee structures (alpaca vs ibkr vs flat)
     async def run(self, strategy: Strategy, start_date: datetime, end_date: datetime, initial_capital: float = 10000.0) -> RawExecutionResult:
@@ -34,6 +35,8 @@ class Backtester:
         symbols = strategy.universe()
         cadence = strategy.cadence()
 
+        self._schedule_cache = self.market_calendar.schedule(start_date=start_date - timedelta(days=10), end_date=end_date)
+        
         # note: YF anchors weeks on whatever day you start on
         #  if you start on a weds, Open = last Thurs open and Close = this Weds close
         data = self.data_provider.get_data(
@@ -173,17 +176,23 @@ class Backtester:
         timestamp_data = data.loc[final_timestamp]
         slice_obj = self._create_slice(timestamp_data)
         return self._get_prices(slice_obj, symbols)
-    
+        
     def _get_trade_timestamp(self, bar_timestamp: pd.Timestamp) -> datetime:
         """
-        Map a bar timestamp to the most recent trading day close at or before it (holiday edge case with weekly+ data).
-        If the bar label falls on a holiday/weekend, shift to the prior session close.
+        Map a bar timestamp to the most recent trading day close with cached schedule.
         """
         ts = pd.Timestamp(bar_timestamp).tz_localize(None)
-        schedule = self.market_calendar.schedule(
-            start_date=ts - timedelta(days=10),
-            end_date=ts
-        )
+        
+        # Use cached schedule
+        if self._schedule_cache is not None and not self._schedule_cache.empty:
+            schedule = self._schedule_cache[self._schedule_cache.index <= ts]
+        else:
+            # Fallback
+            schedule = self.market_calendar.schedule(
+                start_date=ts - timedelta(days=10),
+                end_date=ts
+            )
+        
         if schedule.empty:
             return ts.to_pydatetime()
 

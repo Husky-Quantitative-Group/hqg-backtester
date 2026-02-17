@@ -1,10 +1,18 @@
+from collections import defaultdict
+from datetime import datetime, timedelta
+from functools import lru_cache
+from http.cookies import SimpleCookie
+import asyncio
+import json
+import threading
+import urllib.request
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
-from collections import defaultdict
-from datetime import datetime, timedelta
-import threading
-import asyncio
+
+import jwt
+
 from ..config.settings import settings
 
 
@@ -76,3 +84,111 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
             )
         
         return await call_next(request)
+
+
+class HqgAuthMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, jwks_url: str = settings.HQG_DASH_JWKS_URL):
+        super().__init__(app)
+        self.jwks_url = jwks_url
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth entirely when JWKS is not configured
+        if not self.jwks_url:
+            return await call_next(request)
+
+        # Allow CORS preflight
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        # Only protect API routes
+        path = request.url.path or ""
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
+        # Read auth token from cookies
+        token = request.cookies.get("hqg_auth_token")
+        if not token:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized"},
+            )
+
+        # Read token header to select JWKS by kid
+        try:
+            header = jwt.get_unverified_header(token)
+        except jwt.PyJWTError:
+            header = None
+        if not header:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized"},
+            )
+
+        kid = header.get("kid")
+
+        # Fetch JWKS (cached)
+        jwks = self._get_jwks(self.jwks_url)
+        # Choose correct kid from JWKS.json
+        keys = jwks.get("keys") or []
+        jwk = next((key for key in keys if key.get("kid") == kid), None)
+
+        if not jwk:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized"},
+            )
+
+        # Build public key
+        try:
+            public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
+        except Exception:
+            public_key = None
+
+        if not public_key:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized"},
+            )
+
+        # Verify token signature and claims
+        try:
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=["RS256"],
+                options={"require": ["exp", "sub"]},
+            )
+        except jwt.PyJWTError:
+            payload = None
+
+        if payload is None:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized"},
+            )
+
+        # Validate subject
+        netid = payload.get("sub")
+
+        if not netid:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized"},
+            )
+
+        # Enforce USER role
+        roles = payload["roles"]
+        allowed_roles = {"PUBLIC", "FUND", "ADMIN"}
+        if not allowed_roles.intersection(roles):
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "Forbidden"},
+            )
+        
+        return await call_next(request)
+
+    @staticmethod
+    @lru_cache(maxsize=4)
+    def _get_jwks(jwks_url: str):
+        with urllib.request.urlopen(jwks_url, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
