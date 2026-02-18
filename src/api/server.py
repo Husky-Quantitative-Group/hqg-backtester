@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 # custom
-app.add_middleware(TimeoutMiddleware, timeout_seconds=300)
+app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.MAX_REQUEST_TIME)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 if settings.HQG_DASH_JWKS_URL:
