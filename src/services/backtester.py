@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas_market_calendars as mcal
 from hqg_algorithms import Strategy, Slice, PortfolioView, Cadence
 from ..models.portfolio import Portfolio
@@ -15,6 +15,7 @@ class Backtester:
     def __init__(self, data_provider: Optional[BaseDataProvider] = None):
         self.data_provider = data_provider or YFDataProvider()
         self.market_calendar = mcal.get_calendar("NYSE")
+        self._closes_cache = None
     
     # TODO: add different types of fee structures (alpaca vs ibkr vs flat)
     async def run(self, strategy: Strategy, start_date: datetime, end_date: datetime, initial_capital: float = 10000.0) -> RawExecutionResult:
@@ -179,13 +180,14 @@ class Backtester:
         Map a bar timestamp to the most recent trading day close at or before it (holiday edge case with weekly+ data).
         If the bar label falls on a holiday/weekend, shift to the prior session close.
         """
-        ts = pd.Timestamp(bar_timestamp).tz_localize(None)
-        schedule = self.market_calendar.schedule(
-            start_date=ts - timedelta(days=10),
-            end_date=ts
-        )
-        if schedule.empty:
-            return ts.to_pydatetime()
+        if self._closes_cache is None:
+            schedule = self.market_calendar.schedule(
+                start_date="1990-01-01", end_date="2030-12-31"
+            )
+            self._closes_cache = schedule["market_close"].dt.tz_localize(None)
 
-        market_close = schedule["market_close"].iloc[-1]
-        return market_close.tz_localize(None).to_pydatetime()
+        ts = pd.Timestamp(bar_timestamp).tz_localize(None)
+        valid = self._closes_cache[self._closes_cache.index <= ts]
+        if len(valid) > 0:
+            return valid.iloc[-1].to_pydatetime()
+        return ts.to_pydatetime()
