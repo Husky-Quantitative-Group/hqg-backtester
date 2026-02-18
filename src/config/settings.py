@@ -14,5 +14,8 @@ class Settings(BaseSettings):
     # TODO exec limits (arbitrary)
     MAX_EXECUTION_TIME: int = 300  # 5 min
     MAX_MEMORY_KB: int = 100_000
+
+    # Optional auth middleware
+    HQG_DASH_JWKS_URL: str = ""
     
 settings = Settings()

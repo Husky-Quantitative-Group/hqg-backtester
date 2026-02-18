@@ -6,3 +6,5 @@ src/strategy_temp/
 .pytest*
 logs/
 data/cache/
+output.prof
+profile.py
