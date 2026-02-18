@@ -1,17 +1,18 @@
 from fastapi import APIRouter, HTTPException
-from ..models.request import BacktestRequest#, BacktestAdvancedRequest (TODO)
-from ..models.response import BacktestResponse#, BacktestAdvancedResponse (TODO)
+from ..models.request import BacktestRequest, ValidationException, ExecutionException
+from ..models.response import BacktestResponse
 from .handlers import BacktestHandler
 
 
 router = APIRouter(prefix="/api/v1")
-handler = BacktestHandler()     # so backtester pure
+handler = BacktestHandler()
+
 
 @router.post("/backtest", response_model=BacktestResponse)
 async def run_backtest_endpoint(request: BacktestRequest):
     """
     Run a backtest with user-provided strategy code.
-    
+
     BacktestRequest
     - strategy_code: Python code defining a Strategy subclass
     - start_date: Backtest start date
@@ -21,8 +22,12 @@ async def run_backtest_endpoint(request: BacktestRequest):
     try:
         result = await handler.handle_backtest(request)
         return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValidationException as e:
+        # Analysis errors, displayed in code editor
+        raise HTTPException(status_code=400, detail={"analysis_errors": e.errors.errors})
+    except ExecutionException as e:
+        # Execution errors, displayed as traceback
+        raise HTTPException(status_code=400, detail={"execution_errors": e.errors.errors})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
 
