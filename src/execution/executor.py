@@ -1,13 +1,15 @@
 # executor.py
+import os
 import subprocess
 import logging
 
 from ..models.request import BacktestRequestError
 from ..models.execution import ExecutionPayload, RawExecutionResult
+from ..config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 DOCKER_IMAGE = "hqg-backtester-sandbox"
-CONTAINER_TIMEOUT = 300  # 5 minutes
 
 class Executor:
     """
@@ -15,7 +17,7 @@ class Executor:
     Communicates via stdin/stdout JSON.
     """
 
-    def __init__(self, image: str = DOCKER_IMAGE, timeout: int = CONTAINER_TIMEOUT):
+    def __init__(self, image: str = DOCKER_IMAGE, timeout: int = settings.MAX_EXECUTION_TIME):
         self.image = image
         self.timeout = timeout
 
@@ -26,6 +28,8 @@ class Executor:
         """
         errors = BacktestRequestError()
         payload_json = payload.model_dump_json()
+
+        profile = os.environ.get("HQG_PROFILE", "0")
 
         cmd = [
             "docker", "run",
@@ -39,6 +43,7 @@ class Executor:
             "--pids-limit=64",              # process limit
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
+            "-e", f"HQG_PROFILE={profile}",
             self.image,
             "python", "-m", "src.execution.container.entrypoint",  # run our execution container, not the web-app
         ]
@@ -55,7 +60,10 @@ class Executor:
             )
 
             if result.stderr:
-                logger.warning(f"Container stderr: {result.stderr[:500]}")
+                if "CONTAINER PROFILE" in result.stderr:
+                    logger.info(f"Container stderr:\n{result.stderr}")
+                else:
+                    logger.warning(f"Container stderr: {result.stderr[:500]}")
 
             if not result.stdout.strip():
                 errors.add(f"Container returned empty output. stderr: {result.stderr[:500]}")

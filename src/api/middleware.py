@@ -17,10 +17,10 @@ from ..config.settings import settings
 
 
 class TimeoutMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, timeout_seconds: int = settings.MAX_EXECUTION_TIME):
+    def __init__(self, app, timeout_seconds: int = settings.MAX_REQUEST_TIME):
         super().__init__(app)
         self.timeout_seconds = timeout_seconds
-    
+
     async def dispatch(self, request: Request, call_next):
         try:
             return await asyncio.wait_for(
