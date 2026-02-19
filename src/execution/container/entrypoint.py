@@ -1,13 +1,19 @@
 import sys
 import time
+import cProfile
+import pstats
+import io
+import os
 import pandas as pd
 from typing import Dict, Any
+from hqg_algorithms import Strategy
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
 from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
 from src.services.data_provider.mock_provider import MockDataProvider
-from src.utils.strategy_loader import StrategyLoader
+
+PROFILE = os.environ.get("HQG_PROFILE", "0") == "1"
 
 
 def main():
@@ -15,9 +21,24 @@ def main():
         json_payload = sys.stdin.read()
         payload = ExecutionPayload.model_validate_json(json_payload)
 
+        if PROFILE:
+            profiler = cProfile.Profile()
+            profiler.enable()
+
         start = time.time()
         result_dict = execute_backtest(payload)
         result_dict["execution_time"] = time.time() - start
+
+        if PROFILE:
+            profiler.disable()
+            stream = io.StringIO()
+            stats = pstats.Stats(profiler, stream=stream)
+            stats.sort_stats("cumulative")
+            stats.print_stats(40)
+            sys.stderr.write(f"\n{'='*70}\n")
+            sys.stderr.write("CONTAINER PROFILE\n")
+            sys.stderr.write(f"{'='*70}\n")
+            sys.stderr.write(stream.getvalue())
 
         result = RawExecutionResult(**result_dict)
         sys.stdout.write(result.model_dump_json())
@@ -65,8 +86,19 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         data = json_to_dataframe(payload.market_data)
 
         # Load strategy class
-        loader = StrategyLoader()
-        strategy_class = loader.load_strategy(payload.strategy_code)
+        strategy_namespace = {}
+        exec(payload.strategy_code, strategy_namespace)
+
+        # Find Strategy subclass
+        strategy_class = None
+        for name, obj in strategy_namespace.items():
+            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
+                strategy_class = obj
+                break
+
+        if strategy_class is None:
+            raise ValueError("No Strategy subclass found in strategy_code")
+
         strategy = strategy_class()
 
         # Initialize portfolio

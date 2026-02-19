@@ -11,7 +11,6 @@ from ..execution.executor import RawExecutionResult
 
 
 class Backtester:
-    
     def __init__(self, data_provider: Optional[BaseDataProvider] = None):
         self.data_provider = data_provider or YFDataProvider()
         self.market_calendar = mcal.get_calendar("NYSE")
