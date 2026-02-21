@@ -6,13 +6,13 @@ from hqg_algorithms import Strategy, Slice, PortfolioView, Cadence
 from ..models.portfolio import Portfolio
 from ..models.response import Trade
 from ..services.data_provider.base_provider import BaseDataProvider
-from ..services.data_provider.yf_provider import YFDataProvider
 from ..execution.executor import RawExecutionResult
 
 
 class Backtester:
-    def __init__(self, data_provider: Optional[BaseDataProvider] = None):
-        self.data_provider = data_provider or YFDataProvider()
+    
+    def __init__(self, data_provider: BaseDataProvider):
+        self.data_provider = data_provider
         self.market_calendar = mcal.get_calendar("NYSE")
         self._schedule_cache = None
     

@@ -5,6 +5,7 @@ import pstats
 import io
 import os
 import pandas as pd
+from hqg_algorithms import Strategy
 from typing import Dict, Any
 from hqg_algorithms import Strategy
 from src.models.execution import ExecutionPayload, RawExecutionResult
@@ -85,20 +86,20 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
         data = json_to_dataframe(payload.market_data)
 
+        # TODO: refactor w/ StrategyLoader (no write)
         # Load strategy class
         strategy_namespace = {}
         exec(payload.strategy_code, strategy_namespace)
 
         # Find Strategy subclass
         strategy_class = None
-        for name, obj in strategy_namespace.items():
+        for _, obj in strategy_namespace.items():
             if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
                 strategy_class = obj
                 break
 
         if strategy_class is None:
             raise ValueError("No Strategy subclass found in strategy_code")
-
         strategy = strategy_class()
 
         # Initialize portfolio
