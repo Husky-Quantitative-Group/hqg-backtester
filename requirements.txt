@@ -3,7 +3,7 @@ uvicorn==0.32.0
 pydantic==2.10.0
 hqg-algorithms
 numpy
-pandas
+pandas>=3.0
 yfinance
 pandas_market_calendars
 pydantic_settings

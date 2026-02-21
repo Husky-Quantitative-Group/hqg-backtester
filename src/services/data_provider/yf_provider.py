@@ -45,9 +45,9 @@ class YFDataProvider(BaseDataProvider):
     Design notes:
     - {SYMBOL}.parquet containing all daily OHLCV rows we have for that symbol.
     - Always fetch daily bars. Coarser intervals (weekly, monthly) are
-      calulated after the fact.
-    - If the cache already covers part of the requested range, refetch + update cache.
-    - Cache is wiped daily by external process; optimize for *intra-day* reuse across users / runs.
+      calculated after the fact.
+    - If the cache already covers part of the requested range, merge new data in.
+    - Expectation is that cache is wiped daily by external process.
     """
     def __init__(self):
         Path(settings.DATA_CACHE_DIR).mkdir(parents=True, exist_ok=True)
@@ -63,7 +63,8 @@ class YFDataProvider(BaseDataProvider):
                 if not df.empty:
                     return df
             except Exception:
-                logger.warning(f"Corrupt cache for {symbol}, will re-fetch")
+                logger.warning(f"Corrupt cache for {symbol}, deleting")
+                path.unlink(missing_ok=True)
         return None
 
     def _write_cache(self, symbol: str, df: pd.DataFrame) -> None:
@@ -73,6 +74,18 @@ class YFDataProvider(BaseDataProvider):
         df.to_parquet(tmp)
         os.replace(tmp, path)
 
+    def _cache_covers(self, symbol: str, fetch_start: datetime, fetch_end: datetime) -> bool:
+        """Check if the cached parquet covers the requested date range."""
+        # NOTE: we read cache 2x per ticker. We can remove this by maintaining a lightweight cache metadata 
+        # that maps TICKER to a data range. can remove a cache read + a O(n) max/min call in this function.
+        cached = self._read_cache(symbol)
+        if cached is None:
+            return False
+        return (
+            cached.index.min().date() <= fetch_start.date()
+            and cached.index.max().date() >= fetch_end.date()
+        )
+
     def _fetch_from_yf(
         self,
         symbols: List[str],
@@ -81,7 +94,7 @@ class YFDataProvider(BaseDataProvider):
     ) -> dict[str, pd.DataFrame]:
         """
         Download daily data for symbols between start and end (inclusive)
-        and return a dict mapping each symbol to its flat OHLCV DF
+        and return a dict mapping each symbol to its flat OHLCV DF.
         """
         logger.info(f"yfinance download: {symbols}  {start.date()} → {end.date()}")
 
@@ -106,7 +119,7 @@ class YFDataProvider(BaseDataProvider):
     def _extract_symbol(self, data: pd.DataFrame, symbol: str) -> pd.DataFrame:
         """
         Extract a flat per-symbol OHLCV DataFrame from a yf.download() result.
-        """        
+        """
         fields = ["Open", "High", "Low", "Close", "Volume"]
 
         if isinstance(data.columns, pd.MultiIndex):
@@ -128,7 +141,7 @@ class YFDataProvider(BaseDataProvider):
 
     def _resample(self, df: pd.DataFrame, bar_size: BarSize) -> pd.DataFrame:
         rule = _RESAMPLE_RULES.get(bar_size)
-        if rule is None:   # Daily
+        if rule is None:    # Daily
             return df
 
         agg = {
@@ -140,6 +153,15 @@ class YFDataProvider(BaseDataProvider):
         }
         agg = {k: v for k, v in agg.items() if k in df.columns}
         return df.resample(rule).agg(agg).dropna(how="all")
+
+    def _last_trading_day(self) -> datetime:
+        """Approximate last trading day (no holiday calendar)."""
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        if today.weekday() == 5:      # Saturday
+            return today - timedelta(days=1)
+        elif today.weekday() == 6:    # Sunday
+            return today - timedelta(days=2)
+        return today
 
     def get_data(
         self,
@@ -157,33 +179,44 @@ class YFDataProvider(BaseDataProvider):
         """
         # TODO: change data provider to make hourly backtests meaningful.
         # Until then, don't support it (enforced in hqg-algorithms)
-        # NOTE: fail faster?
-        if bar_size < timedelta(days=1):
-            raise ValueError(
-                "Intraday bar sizes are not supported; minimum is 1 day."
-            )
 
         symbols = [s.upper() for s in symbols]
 
         # widen the fetch window so the cache is useful for future requests
         fetch_start = min(start_date, _DEFAULT_HISTORY_START)
-        fetch_end = datetime.now()
+        fetch_end = self._last_trading_day()
 
-        # per-symbol: check cache, update if needed
-        for symbol in symbols:
-            lock = _get_cache_lock(symbol)
-            with lock:
-                cached = self._read_cache(symbol)
+        # lockless pre-scan
+        probable_misses = [s for s in symbols if not self._cache_covers(s, fetch_start, fetch_end)]
 
-                if cached is not None and fetch_start >= cached.index.min() and fetch_end <= cached.index.max():
-                    continue    # cache is sufficient
+        # lock + double-check + fetch
+        if probable_misses:
+            sorted_misses = sorted(set(probable_misses))
+            locks = {s: _get_cache_lock(s) for s in sorted_misses}
 
-                # refetch + write
-                new_data = self._fetch_from_yf([symbol], fetch_start, fetch_end)
-                if symbol not in new_data:
-                    raise ValueError(f"No data returned for {symbol}")
-                self._write_cache(symbol, new_data[symbol])
+            for s in sorted_misses:
+                locks[s].acquire()
+            try:
+                confirmed_misses = [s for s in sorted_misses if not self._cache_covers(s, fetch_start, fetch_end)]
 
+                if confirmed_misses:
+                    new_data = self._fetch_from_yf(confirmed_misses, fetch_start, fetch_end)
+
+                    for symbol in confirmed_misses:
+                        if symbol not in new_data:
+                            raise ValueError(f"No data returned for {symbol}")
+
+                        existing = self._read_cache(symbol)
+                        if existing is not None:
+                            merged = pd.concat([existing, new_data[symbol]])
+                            merged = merged[~merged.index.duplicated(keep="last")]
+                            merged = merged.sort_index()
+                        else:
+                            merged = new_data[symbol]
+                        self._write_cache(symbol, merged)
+            finally:
+                for s in reversed(sorted_misses):
+                    locks[s].release()
 
         # build df from cache
         frames: dict[tuple[str, str], pd.Series] = {}
