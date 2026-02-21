@@ -76,17 +76,43 @@ class YFDataProvider(BaseDataProvider):
         df.to_parquet(tmp)
         os.replace(tmp, path)
 
+
+
+    # NOTE: edge case for holidays. Say our cached data starts on 1/2/2024 (since 1/1/2024 was a holiday
+    # with no data). If a user requests a range starting on 1/1/2024, the requested start date
+    # won't match our cached start date, which would incorrectly trigger a data re-fetch.
+
+    # NOTE: Tickers with limited history (e.g., IPO'd in 2015) will have cache_min far
+    # after _DEFAULT_HISTORY_START. Without this check, cache_min > fetch_start would
+    # cause _cache_covers to return False on every call, triggering endless re-fetches.
     def _cache_covers(self, symbol: str, fetch_start: datetime, fetch_end: datetime) -> bool:
-        """Check if the cached parquet covers the requested date range."""
-        # NOTE: we read cache 2x per ticker. We can remove this by maintaining a lightweight cache metadata 
-        # that maps TICKER to a data range. can remove a cache read + a O(n) max/min call in this function.
+        """
+        Check if cache is full enough to skip a fetch.
+        End date: cache must extend to fetch_end.
+        Start date: cache must start within 30 days of fetch_start (generous buffer because cache_min alr <= year 2000)
+        """
         cached = self._read_cache(symbol)
         if cached is None:
             return False
-        return (
-            cached.index.min().date() <= fetch_start.date()
-            and cached.index.max().date() >= fetch_end.date()
+        
+        cache_min = cached.index.min().date()
+        cache_max = cached.index.max().date()
+
+        # If we're asking for our default range (or narrower), a previous fetch already requested back to 2000.
+        if fetch_start >= _DEFAULT_HISTORY_START:
+            start_covered = True
+        else:
+            # Requesting earlier than our default floor: check if cache actually has it
+            start_covered = cache_min <= (fetch_start + timedelta(days=30)).date()
+
+        end_covered = cache_max >= fetch_end.date()
+        
+        covers = end_covered and start_covered
+        logger.debug(
+            f"_cache_covers({symbol}): cache_range={cache_min}..{cache_max}, "
+            f"requested={fetch_start.date()}..{fetch_end.date()}, covers={covers}"
         )
+        return covers
 
     def _fetch_from_yf(
         self,
@@ -98,7 +124,7 @@ class YFDataProvider(BaseDataProvider):
         Download daily data for symbols between start and end (inclusive)
         and return a dict mapping each symbol to its flat OHLCV DF.
         """
-        logger.info(f"yfinance download: {symbols}  {start.date()} → {end.date()}")
+        logger.info(f"yfinance download: {symbols}  {start.date()} -> {end.date()}")
 
         raw = yf.download(
             tickers=symbols,
