@@ -1,0 +1,6 @@
+pandas
+pydantic
+pydantic-settings
+pandas_market_calendars
+hqg_algorithms
+numpy
