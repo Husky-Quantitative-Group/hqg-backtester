@@ -80,7 +80,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
     }
     """
     errors = BacktestRequestError()
-    backtester = Backtester(data_provider=MockDataProvider())
+    backtester = Backtester()
 
     try:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)

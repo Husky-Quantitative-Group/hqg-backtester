@@ -11,9 +11,9 @@ from ..execution.executor import RawExecutionResult
 
 class Backtester:
     
-    def __init__(self, data_provider: BaseDataProvider):
+    def __init__(self, data_provider: Optional[BaseDataProvider] = None):
         self.data_provider = data_provider
-        self.market_calendar = mcal.get_calendar("NYSE")
+        self.market_calendar = None
         self._schedule_cache = None
     
     # TODO: add different types of fee structures (alpaca vs ibkr vs flat)
@@ -31,6 +31,10 @@ class Backtester:
             RawExecutionResult with raw trades, equity curve, and final portfolio state.
             Metrics are computed separately after validation.
         """
+        if self.data_provider is None:
+            raise ValueError("data_provider required for run()")
+
+        self.market_calendar = mcal.get_calendar("NYSE")
         symbols = strategy.universe()
         cadence = strategy.cadence()
 
