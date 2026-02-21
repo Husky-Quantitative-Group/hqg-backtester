@@ -64,7 +64,9 @@ class YFDataProvider(BaseDataProvider):
                     return df
             except Exception:
                 logger.warning(f"Corrupt cache for {symbol}, deleting")
-                path.unlink(missing_ok=True)
+                with _get_cache_lock(symbol):
+                    path.unlink(missing_ok=True)
+
         return None
 
     def _write_cache(self, symbol: str, df: pd.DataFrame) -> None:
