@@ -5,14 +5,12 @@ import pstats
 import io
 import os
 import pandas as pd
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, BarSize
 from typing import Dict, Any
-from hqg_algorithms import Strategy
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
 from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
-from src.services.data_provider.mock_provider import MockDataProvider
 
 PROFILE = os.environ.get("HQG_PROFILE", "0") == "1"
 
@@ -56,7 +54,8 @@ def main():
             final_cash=0.0,
             final_positions={},
             execution_time=0.0,
-            errors=errors
+            errors=errors,
+            bar_size=payload.bar_size
         )
         sys.stdout.write(error_result.model_dump_json())
         sys.exit(1)
@@ -120,7 +119,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_value": portfolio.get_total_value(final_prices),
             "final_cash": portfolio.cash,
             "final_positions": portfolio.positions.copy(),
-            "errors": errors
+            "errors": errors,
+            "bar_size": cadence.bar_size
         }
 
     except Exception as e:
@@ -132,7 +132,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_value": 0.0,
             "final_cash": 0.0,
             "final_positions": {},
-            "errors": errors
+            "errors": errors,
+            "bar_size": BarSize.DAILY   # in case of failure before cadence defined
         }
 
 

@@ -16,7 +16,8 @@ class Backtester:
         self.market_calendar = None
         self._schedule_cache = None
     
-    # TODO: add different types of fee structures (alpaca vs ibkr vs flat)
+    # NOTE: this function currently fails, as RawExecutionResult now requires more fields
+    # Do we need this? I like the idea of providing the option to clone the repo and just import a Backtester + run this function
     async def run(self, strategy: Strategy, start_date: datetime, end_date: datetime, initial_capital: float = 10000.0) -> RawExecutionResult:
         """
         Run a backtest with the given strategy.
@@ -40,8 +41,6 @@ class Backtester:
 
         self._schedule_cache = self.market_calendar.schedule(start_date=start_date - timedelta(days=10), end_date=end_date)
         
-        # note: YF anchors weeks on whatever day you start on
-        #  if you start on a weds, Open = last Thurs open and Close = this Weds close
         data = self.data_provider.get_data(
             symbols=symbols,
             start_date=start_date,
@@ -77,8 +76,7 @@ class Backtester:
     #   this does not work when cadence is > hourly
     # The other easy simplification is to assume immediate trading, which we do below.
 
-    # NOTE: the order dates/times are not exact if weekly/monthly. Trading on Jan 1st means it traded on the close of the most recent trading day.
-    # TODO: make the order execution precise (also, note, YF is limited :( )
+    # NOTE: with yahoo finance, the order dates/times are not exact if weekly/monthly. Trading on Jan 1st means it traded on the close of the most recent trading day. our internal calc fixes this.
     def _run_loop(self, strategy: Strategy, data: pd.DataFrame, portfolio: Portfolio, cadence: Cadence) -> tuple[List[Trade], Dict]:
         """
         Core backtest loop
@@ -87,6 +85,11 @@ class Backtester:
             List of Trades
             DataFrame of portfolio OHLC
         """
+        # BRENDAN TODO: fix this loop - use cadence to determine execution timeframe
+        # line 100, remove
+        # 130 uncomment
+        # line 138 - use exec date (no yf weekly/monthly edge cases)
+
         trades = []
         ohlc = []
         timestamps = data.index.unique()
@@ -131,7 +134,7 @@ class Backtester:
             exec_timestamp = timestamps[exec_index]
             exec_slice = self._create_slice(data.loc[exec_timestamp])
             exec_prices = self._get_prices(exec_slice, strategy.universe())
-            trade_timestamp = self._get_trade_timestamp(exec_timestamp)
+            trade_timestamp = self._get_trade_timestamp(exec_timestamp)     # TODO, BRENDAN. get directly from input data
 
             new_trades = portfolio.rebalance(
                 target_weights,
