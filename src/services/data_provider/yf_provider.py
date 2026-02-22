@@ -24,8 +24,8 @@ _DEFAULT_HISTORY_START = datetime(2000, 1, 1)
 _RESAMPLE_RULES = {
     BarSize.DAILY: None,
     BarSize.WEEKLY: "W-FRI",
-    BarSize.MONTHLY: "ME",
-    BarSize.QUARTERLY: "QE",
+    BarSize.MONTHLY: "M",
+    BarSize.QUARTERLY: "Q",
 }
 
 
@@ -168,8 +168,14 @@ class YFDataProvider(BaseDataProvider):
         return df.dropna(how="all")
 
     def _resample(self, df: pd.DataFrame, bar_size: BarSize) -> pd.DataFrame:
+        """
+        Resample daily bars to a coarser frequency. 
+
+        Uses manual grouping instead of pd.resample() so that the output 
+        index contains the last actual trading date in each period.
+        """
         rule = _RESAMPLE_RULES.get(bar_size)
-        if rule is None:    # Daily
+        if rule is None:
             return df
 
         agg = {
@@ -180,7 +186,18 @@ class YFDataProvider(BaseDataProvider):
             "volume": "sum",
         }
         agg = {k: v for k, v in agg.items() if k in df.columns}
-        return df.resample(rule).agg(agg).dropna(how="all")
+
+        # assign each daily row to a calendar period bucket & aggregate
+        periods = df.index.to_period(rule)
+        grouped = df.groupby(periods)
+        resampled = grouped.agg(agg).dropna(how="all")
+
+        # replace period-end dates with the last real trading date per group
+        last_date_map = {period: group.index[-1] for period, group in grouped}
+        real_dates = [last_date_map[p] for p in resampled.index]
+        resampled.index = pd.DatetimeIndex(real_dates, name=df.index.name)
+
+        return resampled
 
     def _last_trading_day(self) -> datetime:
         """Approximate last trading day (no holiday calendar)."""
