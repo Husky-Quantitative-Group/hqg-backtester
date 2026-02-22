@@ -1,0 +1,5 @@
+pandas
+pydantic
+pydantic-settings
+hqg-algorithms>=0.1.1
+numpy

@@ -76,6 +76,7 @@ class Executor:
                     final_positions={},
                     execution_time=0.0,
                     errors=errors,
+                    bar_size=payload.bar_size
                 )
 
             return RawExecutionResult.model_validate_json(result.stdout)
@@ -91,6 +92,7 @@ class Executor:
                 final_positions={},
                 execution_time=0.0,
                 errors=errors,
+                bar_size=payload.bar_size
             )
         except Exception as e:
             errors.add(f"Container execution failed: {str(e)}")
@@ -103,4 +105,5 @@ class Executor:
                 final_positions={},
                 execution_time=0.0,
                 errors=errors,
+                bar_size=payload.bar_size
             )

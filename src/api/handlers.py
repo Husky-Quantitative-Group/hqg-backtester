@@ -42,6 +42,7 @@ class BacktestHandler:
                 trades=trades,
                 initial_capital=request.initial_capital,
                 data_provider=self.orchestrator.data_provider,
+                bar_size=raw_result.bar_size,
             )
 
             logger.info(f"Backtest complete. Sharpe: {metrics.sharpe:.2f}")

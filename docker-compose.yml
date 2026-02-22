@@ -1,4 +1,9 @@
 services:
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    image: hqg-backtester-sandbox
   backtester-api:
     build:
       context: .

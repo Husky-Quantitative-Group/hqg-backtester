@@ -85,6 +85,7 @@ class Orchestrator:
                     end_date=request.end_date,
                     initial_capital=request.initial_capital,
                     market_data=market_data_json,
+                    bar_size=cadence.bar_size
                 )
                 
                 # Execute our payload

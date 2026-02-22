@@ -1,0 +1,7 @@
+FROM python:3.11-slim
+WORKDIR /app
+
+COPY requirements-sandbox.txt .
+RUN pip install --no-cache-dir -r requirements-sandbox.txt
+
+COPY src/ src/

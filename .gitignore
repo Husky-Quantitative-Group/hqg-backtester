@@ -8,3 +8,4 @@ logs/
 data/cache/
 output.prof
 profile.py
+logs*
