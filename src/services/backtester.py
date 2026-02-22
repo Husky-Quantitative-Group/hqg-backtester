@@ -1,7 +1,6 @@
 import pandas as pd
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
-import pandas_market_calendars as mcal
+from datetime import datetime
 from hqg_algorithms import Strategy, Slice, PortfolioView, Cadence
 from ..models.portfolio import Portfolio
 from ..models.response import Trade
@@ -13,8 +12,6 @@ class Backtester:
     
     def __init__(self, data_provider: Optional[BaseDataProvider] = None):
         self.data_provider = data_provider
-        self.market_calendar = None
-        self._schedule_cache = None
     
     # NOTE: this function currently fails, as RawExecutionResult now requires more fields
     # Do we need this? I like the idea of providing the option to clone the repo and just import a Backtester + run this function
@@ -35,11 +32,8 @@ class Backtester:
         if self.data_provider is None:
             raise ValueError("data_provider required for run()")
 
-        self.market_calendar = mcal.get_calendar("NYSE")
         symbols = strategy.universe()
         cadence = strategy.cadence()
-
-        self._schedule_cache = self.market_calendar.schedule(start_date=start_date - timedelta(days=10), end_date=end_date)
         
         data = self.data_provider.get_data(
             symbols=symbols,
@@ -85,20 +79,11 @@ class Backtester:
             List of Trades
             DataFrame of portfolio OHLC
         """
-        # BRENDAN TODO: fix this loop - use cadence to determine execution timeframe
-        # line 100, remove
-        # 130 uncomment
-        # line 138 - use exec date (no yf weekly/monthly edge cases)
-
         trades = []
         ohlc = []
         timestamps = data.index.unique()
         
         for i, timestamp in enumerate(timestamps):
-            # to prevent edge case issues with current "immediate fill" implementation
-            if i == 0:
-                continue
-
             # create data slice at decision time
             timestamp_data = data.loc[timestamp]
             slice_obj = self._create_slice(timestamp_data)
@@ -124,22 +109,22 @@ class Backtester:
             if target_weights is None:
                 continue
             
+            # TODO (low priority): support usage of cadence.exec_lag_bars
+            #  this would require us to separate decision events from execution events, maybe using a pending order queue.
+            # TODO (low priority): support usage of cadence.call_phase to execute on bar open vs close. This would only work in conjunction with exec_lag_bars. Ie, decide at the close of t, execute on the open of t+1.
 
-            exec_index = i
-            # UNCOMMENT to calculate execution timestamp with lag
-            #exec_index = i + cadence.exec_lag_bars 
+            exec_index = i      # assumes cadence.exec_lag_bars = DEFAULT (0)
             if exec_index >= len(timestamps):
                 break
             
             exec_timestamp = timestamps[exec_index]
             exec_slice = self._create_slice(data.loc[exec_timestamp])
             exec_prices = self._get_prices(exec_slice, strategy.universe())
-            trade_timestamp = self._get_trade_timestamp(exec_timestamp)     # TODO, BRENDAN. get directly from input data
 
             new_trades = portfolio.rebalance(
                 target_weights,
                 exec_prices,
-                trade_timestamp
+                exec_timestamp
             )
             trades.extend(new_trades)
         
@@ -182,25 +167,3 @@ class Backtester:
         timestamp_data = data.loc[final_timestamp]
         slice_obj = self._create_slice(timestamp_data)
         return self._get_prices(slice_obj, symbols)
-        
-    def _get_trade_timestamp(self, bar_timestamp: pd.Timestamp) -> datetime:
-        """
-        Map a bar timestamp to the most recent trading day close with cached schedule.
-        """
-        ts = pd.Timestamp(bar_timestamp).tz_localize(None)
-        
-        # Use cached schedule
-        if self._schedule_cache is not None and not self._schedule_cache.empty:
-            schedule = self._schedule_cache[self._schedule_cache.index <= ts]
-        else:
-            # Fallback
-            schedule = self.market_calendar.schedule(
-                start_date=ts - timedelta(days=10),
-                end_date=ts
-            )
-        
-        if schedule.empty:
-            return ts.to_pydatetime()
-
-        market_close = schedule["market_close"].iloc[-1]
-        return market_close.tz_localize(None).to_pydatetime()
