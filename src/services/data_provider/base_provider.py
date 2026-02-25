@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from hqg_algorithms import BarSize
 from typing import List
 import pandas as pd
 
@@ -12,7 +13,7 @@ class BaseDataProvider(ABC):
         symbols: List[str],
         start_date: datetime,
         end_date: datetime,
-        bar_size: timedelta = timedelta(days=1),
+        bar_size: BarSize = BarSize.DAILY
     ) -> pd.DataFrame:
         """
         Fetch historical market data.

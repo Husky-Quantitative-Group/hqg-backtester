@@ -5,13 +5,12 @@ import pstats
 import io
 import os
 import pandas as pd
+from hqg_algorithms import Strategy, BarSize
 from typing import Dict, Any
-from hqg_algorithms import Strategy
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
 from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
-from src.services.data_provider.mock_provider import MockDataProvider
 
 PROFILE = os.environ.get("HQG_PROFILE", "0") == "1"
 
@@ -55,7 +54,8 @@ def main():
             final_cash=0.0,
             final_positions={},
             execution_time=0.0,
-            errors=errors
+            errors=errors,
+            bar_size=payload.bar_size
         )
         sys.stdout.write(error_result.model_dump_json())
         sys.exit(1)
@@ -79,26 +79,26 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
     }
     """
     errors = BacktestRequestError()
-    backtester = Backtester(data_provider=MockDataProvider())
+    backtester = Backtester()
 
     try:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
         data = json_to_dataframe(payload.market_data)
 
+        # TODO: refactor w/ StrategyLoader (no write)
         # Load strategy class
         strategy_namespace = {}
         exec(payload.strategy_code, strategy_namespace)
 
         # Find Strategy subclass
         strategy_class = None
-        for name, obj in strategy_namespace.items():
+        for _, obj in strategy_namespace.items():
             if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
                 strategy_class = obj
                 break
 
         if strategy_class is None:
             raise ValueError("No Strategy subclass found in strategy_code")
-
         strategy = strategy_class()
 
         # Initialize portfolio
@@ -119,7 +119,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_value": portfolio.get_total_value(final_prices),
             "final_cash": portfolio.cash,
             "final_positions": portfolio.positions.copy(),
-            "errors": errors
+            "errors": errors,
+            "bar_size": cadence.bar_size
         }
 
     except Exception as e:
@@ -131,7 +132,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_value": 0.0,
             "final_cash": 0.0,
             "final_positions": {},
-            "errors": errors
+            "errors": errors,
+            "bar_size": BarSize.DAILY   # in case of failure before cadence defined
         }
 
 
