@@ -32,7 +32,6 @@ class Orchestrator:
     _semaphore = asyncio.Semaphore(13)  # 13 maximum backtests at a time (one for each member)
 
     def __init__(self):
-        self.strategy_loader = StrategyLoader()
         self.data_provider = YFDataProvider()
         self.executor = Executor()
         self.output_validator = OutputValidator()
@@ -51,7 +50,7 @@ class Orchestrator:
                     raise ValidationException(request.errors)
  
                 # Parse strategy code to extract universe + cadence
-                strategy_class = self.strategy_loader.load_strategy(request.strategy_code)
+                strategy_class = StrategyLoader.load_code(request.strategy_code)
                 strategy = strategy_class()
                 symbols = strategy.universe()
                 cadence = strategy.cadence()
