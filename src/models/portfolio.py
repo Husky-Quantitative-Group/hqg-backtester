@@ -1,6 +1,5 @@
 from typing import Dict, List
 from datetime import datetime
-from uuid import uuid4
 from .response import OrderType, Trade
 from hqg_algorithms import Slice
 
@@ -88,12 +87,13 @@ class Portfolio:
             
             # execute buy or sell 
             # (assume x1 margin, so cash can be momentarily negative as we rebalance)
+            trade_id = f"{timestamp}-{symbol}"
             if shares_to_trade > 0:
                 self.positions[symbol] += shares_to_trade
                 self.cash -= trade_value
                 
                 trades.append(Trade(
-                    id=str(uuid4()),
+                    id=trade_id,
                     timestamp=timestamp,
                     symbol=symbol,
                     action=OrderType.BUY,
@@ -109,7 +109,7 @@ class Portfolio:
                 self.cash += trade_value
                     
                 trades.append(Trade(
-                    id=str(uuid4()),
+                    id=trade_id,
                     timestamp=timestamp,
                     symbol=symbol,
                     action=OrderType.SELL,
