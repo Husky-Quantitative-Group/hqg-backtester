@@ -26,10 +26,9 @@ class Portfolio:
         )
         return self.cash + positions_value
 
-    def get_weights(self, prices: Dict[str, float]) -> Dict[str, float]:
+    def get_weights(self, prices: Dict[str, float], tv: float) -> Dict[str, float]:
         """ returns dict of ticker: weight. Sum will be <= 1, as we will not return Cash """
         wts = {}
-        tv = self.get_total_value(prices)
         for tick, quantity in self.positions.items():
             if tick not in prices:
                 continue

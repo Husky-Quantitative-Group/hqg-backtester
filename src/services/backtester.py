@@ -97,13 +97,14 @@ class Backtester:
 
             # make portfolio view
             prices = self._get_prices(slice_obj, strategy.universe())
-            portfolio.update_equity_curve(timestamp, portfolio.get_total_value(prices))
+            tv = portfolio.get_total_value(prices)
+            portfolio.update_equity_curve(timestamp, tv)
 
             portfolio_view = PortfolioView(
-                equity=portfolio.get_total_value(prices),
+                equity=tv,
                 cash=portfolio.cash,
                 positions=portfolio.positions,
-                weights=portfolio.get_weights(prices)
+                weights=portfolio.get_weights(prices, tv)
             )
             
             # get target weights
