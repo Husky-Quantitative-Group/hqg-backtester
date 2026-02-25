@@ -61,8 +61,8 @@ class Orchestrator:
                 request.errors.add(str(e))
                 raise ValidationException(request.errors)
             try:
-                # Fetch market data (parquet cache handles dedup)
-                data = self.data_provider.get_data(
+                data = await asyncio.to_thread(
+                    self.data_provider.get_data,
                     symbols=symbols,
                     start_date=request.start_date,
                     end_date=request.end_date,
@@ -72,7 +72,6 @@ class Orchestrator:
                 if data.empty:
                     request.errors.add("No market data available for the specified date range and symbols")
                     raise ExecutionException(request.errors)
-    
                 logger.info(f"Fetched {len(data)} bars for {symbols}")
 
                 # Convert DataFrame → JSON for container
@@ -86,6 +85,7 @@ class Orchestrator:
                     end_date=request.end_date,
                     initial_capital=request.initial_capital,
                     market_data=market_data_json,
+                    bar_size=cadence.bar_size
                 )
                 
                 # Execute our payload

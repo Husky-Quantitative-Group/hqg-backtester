@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from hqg_algorithms import BarSize
 from datetime import datetime
 from typing import Optional, Dict, List, Any
 from ..models.request import BacktestRequestError
@@ -8,6 +9,7 @@ class ExecutionPayload(BaseModel):
     name: Optional[str] = Field(default="Unnamed Backtest", description="Name for this backtest run")
     start_date: datetime
     end_date: datetime
+    bar_size: BarSize = Field(default=None, description="Strategy BarSize")
     initial_capital: float = Field(default=100000.0, description="Starting cash of Python strategy", gt=0)
     market_data: Dict[str, Any] = Field(..., description="Pre-fetched OHLC data")
 
@@ -22,3 +24,4 @@ class RawExecutionResult(BaseModel):
 
     execution_time: Optional[float] = Field(default=None, description="Execution time in seconds")
     errors: BacktestRequestError = Field(default_factory=BacktestRequestError, description="Any errors encountered during execution")
+    bar_size: BarSize = Field(default=None, description="Strategy BarSize")

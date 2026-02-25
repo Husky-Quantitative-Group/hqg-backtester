@@ -1,0 +1,1716 @@
+Strategy 1:
+
+
+
+
+
+
+
+$23,851.40
+
+Equity
+
+
+
+-$0.00
+
+Fees
+
+
+
+$23,732.50
+
+Holdings
+
+
+
+$11,659.79
+
+Net Profit
+
+
+
+9.796%
+
+PSR
+
+
+
+138.51 %
+
+Return
+
+
+
+$2,191.62
+
+Unrealized
+
+
+
+$7,460,097.16
+
+Volume
+
+
+
+
+
+Strategy EquityAll1y3m1m
+
+
+
+Assets Sales Volume
+
+
+
+Portfolio MarginAll1y3m1m
+
+
+
+DrawdownAll1y3m1m
+
+
+
+ExposureAll1y3m1m
+
+
+
+Portfolio TurnoverAll1y3m1m
+
+Select Chart
+
+Strategy Equity
+
+Assets Sales Volume
+
+Portfolio Margin
+
+Drawdown
+
+Exposure
+
+Portfolio Turnover
+
+Benchmark
+
+Capacity
+
+Research Guide
+
+99 Backtests Remaining
+
+Likely Not Overfit
+
+15 Parameters Detected
+
+Likely Overfitting
+
+2 Minutes Research
+
+Likely Not Overfit
+
+Share Results
+
+Make Public
+
+Publish to Strategy Library
+
+
+
+
+
+Overview
+
+
+
+Report
+
+
+
+Orders
+
+
+
+Trades
+
+
+
+Insights
+
+
+
+Logs
+
+
+
+Code
+
+Download Results
+
+PSR
+
+9.796%
+
+Sharpe Ratio
+
+0.553
+
+Total Orders
+
+613
+
+Average Win
+
+1.25%
+
+Average Loss
+
+-0.72%
+
+Compounding Annual Return
+
+8.217%
+
+Drawdown
+
+19.300%
+
+Expectancy
+
+0.401
+
+Start Equity
+
+10000
+
+End Equity
+
+23851.40
+
+Net Profit
+
+138.514%
+
+Sortino Ratio
+
+0.522
+
+Loss Rate
+
+49%
+
+Win Rate
+
+51%
+
+Profit-Loss Ratio
+
+1.73
+
+Alpha
+
+0.018
+
+Beta
+
+0.326
+
+Annual Standard Deviation
+
+0.088
+
+Annual Variance
+
+0.008
+
+Information Ratio
+
+-0.37
+
+Tracking Error
+
+0.122
+
+Treynor Ratio
+
+0.149
+
+Total Fees
+
+$0.00
+
+Estimated Strategy Capacity
+
+$1700000000.00
+
+Lowest Capacity Asset
+
+SPY R735QTJ8XC9X
+
+Portfolio Turnover
+
+12.85%
+
+Drawdown Recovery
+
+505
+
+
+
+
+
+Strategy 2:
+
+
+
+
+
+$19,628.87
+
+Equity
+
+
+
+-$0.00
+
+Fees
+
+
+
+$19,551.53
+
+Holdings
+
+
+
+$9,654.13
+
+Net Profit
+
+
+
+1.156%
+
+PSR
+
+
+
+96.29 %
+
+Return
+
+
+
+$-25.27
+
+Unrealized
+
+
+
+$2,634,970.85
+
+Volume
+
+
+
+
+
+Strategy EquityAll1y3m1m
+
+
+
+Assets Sales Volume
+
+
+
+Portfolio MarginAll1y3m1m
+
+
+
+DrawdownAll1y3m1m
+
+
+
+ExposureAll1y3m1m
+
+
+
+Portfolio TurnoverAll1y3m1m
+
+Select Chart
+
+Strategy Equity
+
+Assets Sales Volume
+
+Portfolio Margin
+
+Drawdown
+
+Exposure
+
+Portfolio Turnover
+
+Benchmark
+
+Capacity
+
+Research Guide
+
+98 Backtests Remaining
+
+Likely Not Overfit
+
+12 Parameters Detected
+
+Likely Overfitting
+
+3 Minutes Research
+
+Likely Not Overfit
+
+Share Results
+
+Make Public
+
+Publish to Strategy Library
+
+
+
+
+
+Overview
+
+
+
+Report
+
+
+
+Orders
+
+
+
+Trades
+
+
+
+Insights
+
+
+
+Logs
+
+
+
+Code
+
+Download Results
+
+PSR
+
+1.156%
+
+Sharpe Ratio
+
+0.251
+
+Total Orders
+
+193
+
+Average Win
+
+3.14%
+
+Average Loss
+
+-2.33%
+
+Compounding Annual Return
+
+6.320%
+
+Drawdown
+
+25.300%
+
+Expectancy
+
+0.346
+
+Start Equity
+
+10000
+
+End Equity
+
+19628.87
+
+Net Profit
+
+96.289%
+
+Sortino Ratio
+
+0.248
+
+Loss Rate
+
+43%
+
+Win Rate
+
+57%
+
+Profit-Loss Ratio
+
+1.35
+
+Alpha
+
+0.014
+
+Beta
+
+0.365
+
+Annual Standard Deviation
+
+0.115
+
+Annual Variance
+
+0.013
+
+Information Ratio
+
+-0.081
+
+Tracking Error
+
+0.143
+
+Treynor Ratio
+
+0.079
+
+Total Fees
+
+$0.00
+
+Estimated Strategy Capacity
+
+$0
+
+Lowest Capacity Asset
+
+AGG SSC0EI5J2F6T
+
+Portfolio Turnover
+
+4.79%
+
+Drawdown Recovery
+
+887
+
+
+
+
+
+Strategy 3:
+
+$15,770.50
+Equity
+-$0.00
+Fees
+$15,325.84
+Holdings
+$1,185.29
+Net Profit
+23.816%
+PSR
+57.70 %
+Return
+$4,585.21
+Unrealized
+$27,128.23
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+96 Backtests Remaining
+
+Likely Not Overfit
+9 Parameters Detected
+
+Possible Overfitting
+5 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR23.816%Sharpe Ratio0.563Total Orders128Average Win0.25%Average Loss-0.08%Compounding Annual Return7.882%Drawdown17.700%Expectancy2.185Start Equity10000End Equity15770.50Net Profit57.705%Sortino Ratio0.558Loss Rate20%Win Rate80%Profit-Loss Ratio2.97Alpha0.011Beta0.359Annual Standard Deviation0.073Annual Variance0.005Information Ratio-0.383Tracking Error0.109Treynor Ratio0.115Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetSPY R735QTJ8XC9XPortfolio Turnover0.11%Drawdown Recovery494
+
+
+
+strategy 4:
+
+$23,461.20
+Equity
+-$0.00
+Fees
+$23,192.20
+Holdings
+$12,448.58
+Net Profit
+2.568%
+PSR
+134.61 %
+Return
+$1,012.62
+Unrealized
+$256,911.20
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+95 Backtests Remaining
+
+Likely Not Overfit
+25 Parameters Detected
+
+Likely Overfitting
+6 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR2.568%Sharpe Ratio0.382Total Orders17Average Win16.66%Average Loss-1.35%Compounding Annual Return8.389%Drawdown33.600%Expectancy8.996Start Equity10000End Equity23461.20Net Profit134.612%Sortino Ratio0.364Loss Rate25%Win Rate75%Profit-Loss Ratio12.33Alpha-0.015Beta0.803Annual Standard Deviation0.13Annual Variance0.017Information Ratio-0.473Tracking Error0.066Treynor Ratio0.062Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetSPY R735QTJ8XC9XPortfolio Turnover0.44%Drawdown Recovery505
+
+
+Strategy 5:
+$69,276.18
+Equity
+-$0.00
+Fees
+$69,121.92
+Holdings
+$32,036.84
+Net Profit
+3.704%
+PSR
+592.76 %
+Return
+$27,239.33
+Unrealized
+$176,982.33
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Capacity
+Benchmark
+Research Guide
+94 Backtests Remaining
+
+Likely Not Overfit
+13 Parameters Detected
+
+Likely Overfitting
+7 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR3.704%Sharpe Ratio0.445Total Orders416Average Win0.82%Average Loss-0.14%Compounding Annual Return8.614%Drawdown31.300%Expectancy5.309Start Equity10000End Equity69276.18Net Profit592.762%Sortino Ratio0.487Loss Rate7%Win Rate93%Profit-Loss Ratio5.77Alpha0.01Beta0.476Annual Standard Deviation0.088Annual Variance0.008Information Ratio-0.244Tracking Error0.094Treynor Ratio0.082Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetSPY R735QTJ8XC9XPortfolio Turnover0.08%Drawdown Recovery1026
+
+strategy 6:
+$59,244.48
+Equity
+-$0.00
+Fees
+$58,997.95
+Holdings
+$48,415.34
+Net Profit
+7.435%
+PSR
+492.44 %
+Return
+$829.15
+Unrealized
+$13,581,063.07
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Capacity
+Benchmark
+Research Guide
+93 Backtests Remaining
+
+Likely Not Overfit
+24 Parameters Detected
+
+Likely Overfitting
+8 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR7.435%Sharpe Ratio0.584Total Orders3865Average Win0.32%Average Loss-0.23%Compounding Annual Return12.158%Drawdown23.500%Expectancy0.466Start Equity10000End Equity59244.48Net Profit492.445%Sortino Ratio0.653Loss Rate39%Win Rate61%Profit-Loss Ratio1.42Alpha0.025Beta0.553Annual Standard Deviation0.124Annual Variance0.015Information Ratio-0.118Tracking Error0.115Treynor Ratio0.131Total Fees$0.00Estimated Strategy Capacity$39000000.00Lowest Capacity AssetBND TRO5ZARLX6JPPortfolio Turnover8.33%Drawdown Recovery657 Rolling Statistics
+
+Strategy 7:
+$22,206.17
+Equity
+-$0.00
+Fees
+$22,047.62
+Holdings
+$13,701.13
+Net Profit
+2.201%
+PSR
+122.06 %
+Return
+$-1,494.96
+Unrealized
+$2,851,148.38
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Capacity
+Benchmark
+Research Guide
+92 Backtests Remaining
+
+Likely Not Overfit
+21 Parameters Detected
+
+Likely Overfitting
+9 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR2.201%Sharpe Ratio0.328Total Orders589Average Win1.16%Average Loss-1.18%Compounding Annual Return7.517%Drawdown18.000%Expectancy0.259Start Equity10000End Equity22206.17Net Profit122.062%Sortino Ratio0.353Loss Rate37%Win Rate63%Profit-Loss Ratio0.98Alpha-0.008Beta0.582Annual Standard Deviation0.115Annual Variance0.013Information Ratio-0.414Tracking Error0.099Treynor Ratio0.065Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetXLV RGRPZX100F39Portfolio Turnover4.93%Drawdown Recovery998 Rolling Statistics
+
+
+Strategy 8:
+$27,235.01
+Equity
+-$0.00
+Fees
+$27,049.25
+Holdings
+$16,911.58
+Net Profit
+10.913%
+PSR
+172.35 %
+Return
+$323.43
+Unrealized
+$5,621,258.33
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+91 Backtests Remaining
+
+Likely Not Overfit
+14 Parameters Detected
+
+Likely Overfitting
+10 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR10.913%Sharpe Ratio0.46Total Orders1201Average Win0.50%Average Loss-0.36%Compounding Annual Return9.617%Drawdown26.000%Expectancy0.525Start Equity10000End Equity27235.01Net Profit172.350%Sortino Ratio0.438Loss Rate36%Win Rate64%Profit-Loss Ratio1.39Alpha-0.005Beta0.649Annual Standard Deviation0.1Annual Variance0.01Information Ratio-0.548Tracking Error0.059Treynor Ratio0.071Total Fees$0.00Estimated Strategy Capacity$47000000.00Lowest Capacity AssetSHY SGNKIKYGE9NPPortfolio Turnover8.64%Drawdown Recovery554 Rolling Statistics
+
+
+Strategy 9:
+$29,226.53
+Equity
+-$0.00
+Fees
+$28,853.65
+Holdings
+$19,462.80
+Net Profit
+5.303%
+PSR
+192.27 %
+Return
+$-236.27
+Unrealized
+$2,410,396.10
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Capacity
+Benchmark
+Research Guide
+90 Backtests Remaining
+
+Likely Not Overfit
+17 Parameters Detected
+
+Likely Overfitting
+11 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR5.303%Sharpe Ratio0.478Total Orders2323Average Win0.25%Average Loss-0.20%Compounding Annual Return6.930%Drawdown21.700%Expectancy0.461Start Equity10000End Equity29226.53Net Profit192.265%Sortino Ratio0.552Loss Rate34%Win Rate66%Profit-Loss Ratio1.22Alpha0.026Beta0.166Annual Standard Deviation0.074Annual Variance0.005Information Ratio-0.147Tracking Error0.156Treynor Ratio0.212Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetSPY R735QTJ8XC9XPortfolio Turnover1.97%Drawdown Recovery630 Rolling Statistics
+
+
+Strategy 10:
+$73,429.18
+Equity
+-$0.00
+Fees
+$73,189.14
+Holdings
+$0.00
+Net Profit
+0.019%
+PSR
+634.29 %
+Return
+$63,429.18
+Unrealized
+$9,759.96
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+89 Backtests Remaining
+
+Likely Not Overfit
+7 Parameters Detected
+
+Possible Overfitting
+12 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR0.019%Sharpe Ratio0.282Total Orders1Average Win0%Average Loss0%Compounding Annual Return7.995%Drawdown54.100%Expectancy0Start Equity10000End Equity73429.18Net Profit634.292%Sortino Ratio0.299Loss Rate0%Win Rate0%Profit-Loss Ratio0Alpha0Beta0.978Annual Standard Deviation0.155Annual Variance0.024Information Ratio-0.109Tracking Error0.005Treynor Ratio0.045Total Fees$0.00Estimated Strategy Capacity$53000000.00Lowest Capacity AssetSPY R735QTJ8XC9XPortfolio Turnover0.01%Drawdown Recovery2404
+
+
+Strategy 11:
+$29,051.98
+Equity
+-$0.00
+Fees
+$29,315.37
+Holdings
+$13,303.53
+Net Profit
+0.044%
+PSR
+190.52 %
+Return
+$5,748.44
+Unrealized
+$918,123.65
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+88 Backtests Remaining
+
+Likely Not Overfit
+16 Parameters Detected
+
+Likely Overfitting
+13 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR0.044%Sharpe Ratio0.221Total Orders56Average Win10.29%Average Loss-13.25%Compounding Annual Return6.100%Drawdown47.700%Expectancy0.350Start Equity10000End Equity29051.98Net Profit190.520%Sortino Ratio0.232Loss Rate24%Win Rate76%Profit-Loss Ratio0.78Alpha0.009Beta0.393Annual Standard Deviation0.156Annual Variance0.024Information Ratio-0.175Tracking Error0.172Treynor Ratio0.088Total Fees$0.00Estimated Strategy Capacity$170000000.00Lowest Capacity AssetIWM RV0PWMLXVHPHPortfolio Turnover0.77%Drawdown Recovery1579 Rolling Statistics
+
+
+Strategy 12:
+$27,042.11
+Equity
+-$0.00
+Fees
+$26,738.85
+Holdings
+$3,351.96
+Net Profit
+4.295%
+PSR
+170.42 %
+Return
+$13,690.15
+Unrealized
+$27,450.68
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+87 Backtests Remaining
+
+Likely Not Overfit
+13 Parameters Detected
+
+Likely Overfitting
+15 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR4.295%Sharpe Ratio0.387Total Orders99Average Win0.77%Average Loss-0.01%Compounding Annual Return8.710%Drawdown27.700%Expectancy105.650Start Equity10000End Equity27042.11Net Profit170.421%Sortino Ratio0.389Loss Rate5%Win Rate95%Profit-Loss Ratio111.26Alpha-0.016Beta0.735Annual Standard Deviation0.11Annual Variance0.012Information Ratio-0.767Tracking Error0.048Treynor Ratio0.058Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetVTI S551B7YE6N39Portfolio Turnover0.05%Drawdown Recovery828
+
+
+Strategy 13:
+$256,564.25
+Equity
+-$0.00
+Fees
+$255,030.48
+Holdings
+$221,573.38
+Net Profit
+25.208%
+PSR
+2,465.64 %
+Return
+$24,990.87
+Unrealized
+$21,588,308.05
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Capacity
+Benchmark
+Research Guide
+86 Backtests Remaining
+
+Likely Not Overfit
+17 Parameters Detected
+
+Likely Overfitting
+16 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR25.208%Sharpe Ratio0.829Total Orders628Average Win2.57%Average Loss-1.95%Compounding Annual Return22.617%Drawdown41.300%Expectancy0.548Start Equity10000End Equity256564.25Net Profit2465.643%Sortino Ratio0.913Loss Rate33%Win Rate67%Profit-Loss Ratio1.31Alpha0.084Beta0.765Annual Standard Deviation0.182Annual Variance0.033Information Ratio0.428Tracking Error0.15Treynor Ratio0.198Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetGOOCV VP83T1ZUHROLPortfolio Turnover3.62%Drawdown Recovery947
+
+
+Strategy 14:
+$21,726.18
+Equity
+-$0.00
+Fees
+$22,041.55
+Holdings
+$11,434.60
+Net Profit
+5.755%
+PSR
+117.26 %
+Return
+$291.58
+Unrealized
+$2,640,352.52
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+85 Backtests Remaining
+
+Likely Not Overfit
+12 Parameters Detected
+
+Likely Overfitting
+17 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR5.755%Sharpe Ratio0.484Total Orders166Average Win2.91%Average Loss-0.90%Compounding Annual Return7.304%Drawdown17.400%Expectancy1.172Start Equity10000End Equity21726.18Net Profit117.262%Sortino Ratio0.471Loss Rate49%Win Rate51%Profit-Loss Ratio3.24Alpha0.031Beta0.228Annual Standard Deviation0.088Annual Variance0.008Information Ratio-0.061Tracking Error0.149Treynor Ratio0.187Total Fees$0.00Estimated Strategy Capacity$33000000.00Lowest Capacity AssetAGG SSC0EI5J2F6TPortfolio Turnover3.98%Drawdown Recovery575
+
+Strategy 15:
+$42,617.50
+Equity
+-$0.00
+Fees
+$42,329.63
+Holdings
+$30,798.61
+Net Profit
+35.117%
+PSR
+326.17 %
+Return
+$1,818.88
+Unrealized
+$1,437,922.45
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Capacity
+Benchmark
+Research Guide
+84 Backtests Remaining
+
+Likely Not Overfit
+24 Parameters Detected
+
+Likely Overfitting
+18 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR35.117%Sharpe Ratio0.703Total Orders1535Average Win0.30%Average Loss-0.21%Compounding Annual Return9.477%Drawdown18.200%Expectancy0.901Start Equity10000End Equity42617.50Net Profit326.175%Sortino Ratio0.781Loss Rate21%Win Rate79%Profit-Loss Ratio1.42Alpha0.037Beta0.182Annual Standard Deviation0.071Annual Variance0.005Information Ratio-0.142Tracking Error0.147Treynor Ratio0.273Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetSPY R735QTJ8XC9XPortfolio Turnover1.15%Drawdown Recovery621
+
+
+Strategy 16:
+$16,950.00
+Equity
+-$0.00
+Fees
+$16,786.76
+Holdings
+$7,600.06
+Net Profit
+0.001%
+PSR
+69.50 %
+Return
+$-650.06
+Unrealized
+$4,878,598.85
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+83 Backtests Remaining
+
+Likely Not Overfit
+21 Parameters Detected
+
+Likely Overfitting
+19 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR0.001%Sharpe Ratio0.036Total Orders721Average Win1.41%Average Loss-1.68%Compounding Annual Return2.672%Drawdown36.200%Expectancy0.107Start Equity10000End Equity16950.00Net Profit69.500%Sortino Ratio0.037Loss Rate40%Win Rate60%Profit-Loss Ratio0.84Alpha-0.018Beta0.377Annual Standard Deviation0.13Annual Variance0.017Information Ratio-0.37Tracking Error0.151Treynor Ratio0.012Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetGLD T3SKPOF94JFPPortfolio Turnover4.28%Drawdown Recovery4312 Rolling Statistics
+
+
+Strategy 17:
+$13,970.84
+Equity
+-$0.00
+Fees
+$13,770.90
+Holdings
+$3,209.73
+Net Profit
+8.795%
+PSR
+39.71 %
+Return
+$761.12
+Unrealized
+$2,005,090.71
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+82 Backtests Remaining
+
+Likely Not Overfit
+18 Parameters Detected
+
+Likely Overfitting
+20 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR8.795%Sharpe Ratio0.337Total Orders306Average Win0.72%Average Loss-0.61%Compounding Annual Return4.266%Drawdown10.600%Expectancy0.333Start Equity10000End Equity13970.84Net Profit39.708%Sortino Ratio0.314Loss Rate39%Win Rate61%Profit-Loss Ratio1.18Alpha-0.007Beta0.258Annual Standard Deviation0.051Annual Variance0.003Information Ratio-0.839Tracking Error0.09Treynor Ratio0.066Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetDIA R7KVSI4AAX5XPortfolio Turnover6.05%Drawdown Recovery1106
+
+
+Strategy 18:
+
+$17,572.60
+Equity
+-$0.00
+Fees
+$16,773.17
+Holdings
+$3,580.82
+Net Profit
+3.924%
+PSR
+75.73 %
+Return
+$3,991.78
+Unrealized
+$31,845.16
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+81 Backtests Remaining
+
+Likely Not Overfit
+15 Parameters Detected
+
+Likely Overfitting
+21 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR3.924%Sharpe Ratio0.205Total Orders120Average Win0.75%Average Loss-0.08%Compounding Annual Return5.302%Drawdown23.300%Expectancy7.346Start Equity10000End Equity17572.60Net Profit75.726%Sortino Ratio0.227Loss Rate16%Win Rate84%Profit-Loss Ratio8.94Alpha-0.004Beta0.227Annual Standard Deviation0.069Annual Variance0.005Information Ratio-0.5Tracking Error0.129Treynor Ratio0.062Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetSPY R735QTJ8XC9XPortfolio Turnover0.07%Drawdown Recovery1394
+
+
+Strategy 19:
+
+$30,095.51
+Equity
+-$0.00
+Fees
+$30,111.77
+Holdings
+$19,842.23
+Net Profit
+2.756%
+PSR
+200.96 %
+Return
+$253.28
+Unrealized
+$9,866,624.44
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+80 Backtests Remaining
+
+Likely Not Overfit
+37 Parameters Detected
+
+Likely Overfitting
+23 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR2.756%Sharpe Ratio0.388Total Orders568Average Win2.10%Average Loss-1.46%Compounding Annual Return8.240%Drawdown25.800%Expectancy0.303Start Equity10000End Equity30095.51Net Profit200.955%Sortino Ratio0.379Loss Rate47%Win Rate53%Profit-Loss Ratio1.44Alpha0.005Beta0.398Annual Standard Deviation0.106Annual Variance0.011Information Ratio-0.4Tracking Error0.123Treynor Ratio0.103Total Fees$0.00Estimated Strategy Capacity$24000000.00Lowest Capacity AssetBND TRO5ZARLX6JPPortfolio Turnover10.79%Drawdown Recovery591
+
+
+Strategy 20:
+$20,413.15
+Equity
+-$0.00
+Fees
+$20,145.41
+Holdings
+$9,599.43
+Net Profit
+0.031%
+PSR
+104.13 %
+Return
+$813.71
+Unrealized
+$4,173,886.44
+Volume
+Strategy Equity
+All1y3m1m
+
+Assets Sales Volume
+
+Portfolio Margin
+All1y3m1m
+
+Drawdown
+All1y3m1m
+
+Exposure
+All1y3m1m
+
+Portfolio Turnover
+All1y3m1m
+
+Select Chart
+Strategy Equity
+Assets Sales Volume
+Portfolio Margin
+Drawdown
+Exposure
+Portfolio Turnover
+Benchmark
+Capacity
+Research Guide
+79 Backtests Remaining
+
+Likely Not Overfit
+33 Parameters Detected
+
+Likely Overfitting
+24 Minutes Research
+
+Likely Not Overfit
+Share Results
+Make Public
+Publish to Strategy Library
+Overview
+Report
+Orders
+Trades
+Insights
+Logs
+Code
+Download Results PSR0.031%Sharpe Ratio0.166Total Orders499Average Win1.79%Average Loss-1.92%Compounding Annual Return4.286%Drawdown41.500%Expectancy0.161Start Equity10000End Equity20413.15Net Profit104.131%Sortino Ratio0.172Loss Rate40%Win Rate60%Profit-Loss Ratio0.93Alpha0.011Beta0.127Annual Standard Deviation0.117Annual Variance0.014Information Ratio-0.232Tracking Error0.184Treynor Ratio0.152Total Fees$0.00Estimated Strategy Capacity$0Lowest Capacity AssetGLD T3SKPOF94JFPPortfolio Turnover3.74%Drawdown Recovery1082
+
+
+
+
+
+

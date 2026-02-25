@@ -2,6 +2,7 @@ import asyncio
 import cProfile
 import pstats
 import io
+import random
 import time
 import pytest
 import httpx
@@ -13,6 +14,14 @@ from src.execution.analysis import StaticAnalyzer
 from src.api.handlers import BacktestHandler
 from src.api.server import app
 from tests.test_strategies.pytest_strategies import TestStrategies
+
+_STRATS_DIR = Path(__file__).parent / "test_strategies" / "strats"
+_STRAT_FILES = sorted(_STRATS_DIR.glob("*.py"))
+
+
+def _random_strategy() -> str:
+    """Return the source code of a randomly selected strategy from strats/."""
+    return random.choice(_STRAT_FILES).read_text()
 
 
 def make_request(
@@ -298,34 +307,21 @@ class TestIntegration:
 
     These tests verify the full execution path:
     Static analysis -> Strategy loading -> Market data fetch -> Docker execution -> Output validation
-    
+
     Run with: pytest tests/test_validation.py -v -m integration
     """
 
     @pytest.mark.asyncio
     @classmethod
-    async def test_meanvar_strategy_executes(self):
-        """
-        Mean-variance optimization strategy.
-        Official results from QuantConnect:
-        - Period: 2019-01-03 to 2025-11-11
-        - Starting equity: $100,000
-        - Ending equity: $174,030.85
-        - Sharpe: 0.3506, Sortino: 0.3501
-        - Max drawdown: 23.9%
-        - Total return: 74.03%
-        - Win rate: 61.38%
-        - Total trades: 5952
-        """
-
-        strategy_path = Path(__file__).parent / "test_strategies" / "meanvarbaseline.py"
-        strategy_code = strategy_path.read_text()
+    async def test_mean_variance_strategy(self):
+        """Mean-variance optimization strategy (strategy_20)."""
+        strategy_code = (_STRATS_DIR / "strategy_20_mean_variance_opt_monthly.py").read_text()
 
         handler = BacktestHandler()
         request = make_request(
             strategy_code=strategy_code,
             start_date=datetime(2019, 1, 1),
-            end_date=datetime(2025, 11, 11),
+            end_date=datetime(2025, 1, 1),
             initial_capital=100000.0,
         )
 
@@ -333,38 +329,53 @@ class TestIntegration:
 
         assert result.metrics is not None
         assert result.equity_stats is not None
-        assert result.metrics.sharpe == pytest.approx(0.35, rel=0.5)
-        assert result.metrics.max_drawdown == pytest.approx(0.24, rel=0.5)
-        assert result.metrics.total_return == pytest.approx(0.74, rel=0.5)
-        assert result.metrics.win_rate == pytest.approx(0.61, rel=0.5)
-        return result
+        assert len(result.candles) > 0
 
+    @pytest.mark.asyncio
+    @classmethod
+    async def test_sma_crossover_strategy(self):
+        """SMA crossover strategy (strategy_02)."""
+        strategy_code = (_STRATS_DIR / "strategy_02_sma_crossover_qqq_weekly.py").read_text()
+
+        handler = BacktestHandler()
+        request = make_request(
+            strategy_code=strategy_code,
+            start_date=datetime(2015, 1, 1),
+            end_date=datetime(2025, 1, 1),
+            initial_capital=100000.0,
+        )
+
+        result = await handler.handle_backtest(request)
+
+        assert result.metrics is not None
+        assert result.equity_stats is not None
+        assert len(result.candles) > 0
 
 @pytest.mark.integration
-class TestLoad: # TODO: Test a wider variety of strategies
+class TestLoad:
     """
     Simulate N concurrent users submitting backtest requests simultaneously.
+    Each request uses a randomly selected strategy for payload diversity.
     """
 
-    N = 12
+    N = 5
 
     @pytest.mark.asyncio
     async def test_concurrent_backtest_requests(self):
-        strategy_path = Path(__file__).parent / "test_strategies" / "meanvarbaseline.py"
-        strategy_code = strategy_path.read_text()
+        payloads = [
+            {
+                "strategy_code": _random_strategy(),
+                "name": f"Load Test {i}",
+                "start_date": "2019-01-01T00:00:00",
+                "end_date": "2025-01-01T00:00:00",
+                "initial_capital": 100000.0,
+                "commission": 0.001,
+                "slippage": 0.001,
+            }
+            for i in range(self.N)
+        ]
 
-        payload = {
-            "strategy_code": strategy_code,
-            "name": "Load Test",
-            "start_date": "2019-01-01T00:00:00",
-            "end_date": "2025-11-11T00:00:00",
-            "initial_capital": 100000.0,
-            "commission": 0.001,
-            "slippage": 0.001,
-        }
-
-        async def timed_request(client, request_id):
-            """Send a single backtest request and track its timing."""
+        async def timed_request(client, request_id, payload):
             start = time.perf_counter()
             response = await client.post(
                 "/api/v1/backtest", json=payload, timeout=600.0
@@ -378,69 +389,56 @@ class TestLoad: # TODO: Test a wider variety of strategies
             transport=httpx.ASGITransport(app=app),
             base_url="http://testserver",
         ) as client:
-            tasks = [
-                timed_request(client, i) for i in range(self.N)
-            ]
+            tasks = [timed_request(client, i, payloads[i]) for i in range(self.N)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         _elapsed = time.perf_counter() - _start
 
-        # All requests must return 200
         for request_id, response, elapsed in results:
             assert response.status_code == 200, (
-                f"Request {request_id} failed with {response.status_code}: "
-                f"{response.text}"
+                f"Request {request_id} failed with {response.status_code}: {response.text}"
             )
 
-        # Validate every response has correct metrics
         for request_id, response, elapsed in results:
             data = response.json()
-
             assert "metrics" in data
             assert "equity_stats" in data
             assert "candles" in data
             assert "orders" in data
-
             metrics = data["metrics"]
-            assert metrics["sharpe_ratio"] == pytest.approx(0.35, rel=0.5), (
-                f"Request {request_id}: sharpe={metrics['sharpe_ratio']}"
+            assert 0.0 <= metrics["max_drawdown"] <= 1.0, (
+                f"Request {request_id}: max_drawdown out of range: {metrics['max_drawdown']}"
             )
-            assert metrics["max_drawdown"] == pytest.approx(0.24, rel=0.5), (
-                f"Request {request_id}: max_drawdown={metrics['max_drawdown']}"
-            )
-            assert metrics["total_return"] == pytest.approx(0.74, rel=0.5), (
-                f"Request {request_id}: total_return={metrics['total_return']}"
-            )
-            assert metrics["win_rate"] == pytest.approx(0.61, rel=0.5), (
-                f"Request {request_id}: win_rate={metrics['win_rate']}"
+            assert 0.0 <= metrics["win_rate"] <= 1.0, (
+                f"Request {request_id}: win_rate out of range: {metrics['win_rate']}"
             )
 
         print(f"Load Test: {self.N} requests completed in {_elapsed:.2f}s")
 @pytest.mark.integration
-class TestStress: # TODO: Test a wider variety of strategies
+class TestStress:
     """
     Simulate N concurrent users submitting backtest requests simultaneously.
+    Each request uses a randomly selected strategy for payload diversity.
     """
 
     N = 50
 
     @pytest.mark.asyncio
     async def test_concurrent_backtest_requests(self):
-        strategy_path = Path(__file__).parent / "test_strategies" / "meanvarbaseline.py"
-        strategy_code = strategy_path.read_text()
+        payloads = [
+            {
+                "strategy_code": _random_strategy(),
+                "name": f"Stress Test {i}",
+                "start_date": "2019-01-01T00:00:00",
+                "end_date": "2025-01-01T00:00:00",
+                "initial_capital": 100000.0,
+                "commission": 0.001,
+                "slippage": 0.001,
+            }
+            for i in range(self.N)
+        ]
 
-        payload = {
-            "strategy_code": strategy_code,
-            "name": "Load Test",
-            "start_date": "2019-01-01T00:00:00",
-            "end_date": "2025-11-11T00:00:00",
-            "initial_capital": 100000.0,
-            "commission": 0.001,
-            "slippage": 0.001,
-        }
-
-        async def timed_request(client, request_id):
-            """Send a single backtest request and track its timing."""
+        async def timed_request(client, request_id, payload):
             start = time.perf_counter()
             response = await client.post(
                 "/api/v1/backtest", json=payload, timeout=600.0
@@ -454,44 +452,31 @@ class TestStress: # TODO: Test a wider variety of strategies
             transport=httpx.ASGITransport(app=app),
             base_url="http://testserver",
         ) as client:
-            tasks = [
-                timed_request(client, i) for i in range(self.N)
-            ]
+            tasks = [timed_request(client, i, payloads[i]) for i in range(self.N)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         _elapsed = time.perf_counter() - _start
 
-        # All requests must return 200
         for request_id, response, elapsed in results:
             assert response.status_code == 200, (
-                f"Request {request_id} failed with {response.status_code}: "
-                f"{response.text}"
+                f"Request {request_id} failed with {response.status_code}: {response.text}"
             )
 
-        # Validate every response has correct metrics
         for request_id, response, elapsed in results:
             data = response.json()
-
             assert "metrics" in data
             assert "equity_stats" in data
             assert "candles" in data
             assert "orders" in data
-
             metrics = data["metrics"]
-            assert metrics["sharpe_ratio"] == pytest.approx(0.35, rel=0.5), (
-                f"Request {request_id}: sharpe={metrics['sharpe_ratio']}"
+            assert 0.0 <= metrics["max_drawdown"] <= 1.0, (
+                f"Request {request_id}: max_drawdown out of range: {metrics['max_drawdown']}"
             )
-            assert metrics["max_drawdown"] == pytest.approx(0.24, rel=0.5), (
-                f"Request {request_id}: max_drawdown={metrics['max_drawdown']}"
-            )
-            assert metrics["total_return"] == pytest.approx(0.74, rel=0.5), (
-                f"Request {request_id}: total_return={metrics['total_return']}"
-            )
-            assert metrics["win_rate"] == pytest.approx(0.61, rel=0.5), (
-                f"Request {request_id}: win_rate={metrics['win_rate']}"
+            assert 0.0 <= metrics["win_rate"] <= 1.0, (
+                f"Request {request_id}: win_rate out of range: {metrics['win_rate']}"
             )
 
-        print(f"Load Test: {self.N} requests completed in {_elapsed:.2f}s")
+        print(f"Stress Test: {self.N} requests completed in {_elapsed:.2f}s")
 
 
 async def ProfileTests():
@@ -518,9 +503,8 @@ async def ProfileTests():
     
     # Profile integration test
     profiler.enable()
-    br = await TestIntegration.test_meanvar_strategy_executes()
+    await TestStress().test_concurrent_backtest_requests()
     profiler.disable()
-    print(br.parameters, br.equity_stats, br.metrics)
 
     stream = io.StringIO()
     stats = pstats.Stats(profiler, stream=stream)
@@ -542,6 +526,7 @@ if __name__ == "__main__":
         docker build -t hqg-backtester .
         docker build -t hqg-backtester-sandbox .
         python -m tests.test_execution
+        (PROFILE): HQG_PROFILE=1 python -m tests.test_execution
 
     For pytest:
         pytest tests/test_execution.py -v

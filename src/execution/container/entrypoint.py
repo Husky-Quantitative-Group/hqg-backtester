@@ -1,13 +1,18 @@
 import sys
 import time
+import cProfile
+import pstats
+import io
+import os
 import pandas as pd
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, BarSize
 from typing import Dict, Any
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
 from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
-from src.services.data_provider.mock_provider import MockDataProvider
+
+PROFILE = os.environ.get("HQG_PROFILE", "0") == "1"
 
 
 def main():
@@ -15,9 +20,24 @@ def main():
         json_payload = sys.stdin.read()
         payload = ExecutionPayload.model_validate_json(json_payload)
 
+        if PROFILE:
+            profiler = cProfile.Profile()
+            profiler.enable()
+
         start = time.time()
         result_dict = execute_backtest(payload)
         result_dict["execution_time"] = time.time() - start
+
+        if PROFILE:
+            profiler.disable()
+            stream = io.StringIO()
+            stats = pstats.Stats(profiler, stream=stream)
+            stats.sort_stats("cumulative")
+            stats.print_stats(40)
+            sys.stderr.write(f"\n{'='*70}\n")
+            sys.stderr.write("CONTAINER PROFILE\n")
+            sys.stderr.write(f"{'='*70}\n")
+            sys.stderr.write(stream.getvalue())
 
         result = RawExecutionResult(**result_dict)
         sys.stdout.write(result.model_dump_json())
@@ -34,7 +54,8 @@ def main():
             final_cash=0.0,
             final_positions={},
             execution_time=0.0,
-            errors=errors
+            errors=errors,
+            bar_size=payload.bar_size
         )
         sys.stdout.write(error_result.model_dump_json())
         sys.exit(1)
@@ -58,7 +79,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
     }
     """
     errors = BacktestRequestError()
-    backtester = Backtester(data_provider=MockDataProvider())
+    backtester = Backtester()
 
     try:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
@@ -98,7 +119,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_value": portfolio.get_total_value(final_prices),
             "final_cash": portfolio.cash,
             "final_positions": portfolio.positions.copy(),
-            "errors": errors
+            "errors": errors,
+            "bar_size": cadence.bar_size
         }
 
     except Exception as e:
@@ -110,7 +132,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_value": 0.0,
             "final_cash": 0.0,
             "final_positions": {},
-            "errors": errors
+            "errors": errors,
+            "bar_size": BarSize.DAILY   # in case of failure before cadence defined
         }
 
 

@@ -1,11 +1,10 @@
 fastapi>=0.128.0
 uvicorn==0.32.0
 pydantic==2.10.0
-hqg-algorithms
+hqg-algorithms>=0.1.1
 numpy
-pandas
+pandas>=3.0
 yfinance
-pandas_market_calendars
 pydantic_settings
 httpx
 pytest
