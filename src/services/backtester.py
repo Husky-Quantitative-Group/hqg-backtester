@@ -79,6 +79,7 @@ class Backtester:
             List of Trades
             DataFrame of portfolio OHLC
         """
+        universe = strategy.universe
         trades = []
         ohlc = []
         timestamps = data.index.unique()
@@ -92,7 +93,7 @@ class Backtester:
             ohlc.append(portfolio.update_ohlc(timestamp, slice_obj))
 
             # make portfolio view
-            prices = self._get_prices(slice_obj, strategy.universe())
+            prices = self._get_prices(slice_obj, universe)
             portfolio.update_equity_curve(timestamp, portfolio.get_total_value(prices))
 
             portfolio_view = PortfolioView(
@@ -119,7 +120,7 @@ class Backtester:
             
             exec_timestamp = timestamps[exec_index]
             exec_slice = self._create_slice(data.loc[exec_timestamp])
-            exec_prices = self._get_prices(exec_slice, strategy.universe())
+            exec_prices = self._get_prices(exec_slice, universe)
 
             new_trades = portfolio.rebalance(
                 target_weights,

@@ -102,11 +102,11 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         strategy = strategy_class()
 
         # Initialize portfolio
-        symbols = strategy.universe()
+        symbols = strategy.universe
         portfolio = Portfolio(initial_cash=payload.initial_capital, symbols=symbols)
 
         # Run backtest loop
-        cadence = strategy.cadence()
+        cadence = strategy.cadence
         trades, ohlc = backtester._run_loop(strategy, data, portfolio, cadence)
 
         # Get final prices
