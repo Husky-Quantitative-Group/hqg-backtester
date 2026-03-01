@@ -86,7 +86,7 @@ class Backtester:
         ohlc = []
 
         for _, timestamp in enumerate(timestamps):
-            slice_obj = slices[timestamp]   # ERROR?
+            slice_obj = slices[timestamp]
 
             # update ohlc with current positions (before rebalancing)
             ohlc.append(portfolio.update_ohlc(timestamp, slice_obj))
