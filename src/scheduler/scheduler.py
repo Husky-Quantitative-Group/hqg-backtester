@@ -57,6 +57,7 @@ class Scheduler:
         finally:
             await kv_store.delete(job_id)
     def _build_response(
+        self,
         job_id: str,
         request: BacktestRequest,
         raw_result: RawExecutionResult,
