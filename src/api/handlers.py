@@ -62,6 +62,7 @@ class BacktestHandler:
             ]
 
             return BacktestResponse(
+                job_id="NA",
                 parameters=BacktestParameters(
                     name=request.name or "Unnamed Backtest",
                     starting_equity=request.initial_capital,
