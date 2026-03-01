@@ -1,13 +1,13 @@
 """
-Strategy 19: MACD Signal – QQQ vs BND
+Strategy 19: MACD Signal - QQQ vs BND
 Period: 2012-01-01 to 2025-12-31
 Cadence: Daily
 Logic: Compute MACD (12-day EMA - 26-day EMA) and 9-day signal line on QQQ.
-       MACD > signal → bullish → QQQ 100%
-       MACD <= signal → bearish → BND 100%
+       MACD > signal -> bullish -> QQQ 100%
+       MACD <= signal -> bearish -> BND 100%
 No shorting.
 """
-from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize
+from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize, Signal, TargetWeights, Hold
 
 START_DATE = "2012-01-01"
 END_DATE = "2025-12-31"
@@ -23,16 +23,13 @@ class MACDSignalQQQ_Daily(Strategy):
         self._mult26 = 2.0 / (26 + 1)
         self._mult9 = 2.0 / (9 + 1)
 
-    def universe(self) -> list[str]:
-        return ["QQQ", "BND"]
+    universe = ["QQQ", "BND"]
+    cadence = Cadence(bar_size=BarSize.DAILY)
 
-    def cadence(self) -> Cadence:
-        return Cadence(bar_size=BarSize.DAILY)
-
-    def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
+    def on_data(self, data: Slice, portfolio: PortfolioView) -> Signal:
         price = data.close("QQQ")
         if price is None:
-            return None
+            return Hold()
 
         self._count += 1
 
@@ -40,7 +37,7 @@ class MACDSignalQQQ_Daily(Strategy):
         if self._ema12 is None:
             self._ema12 = price
             self._ema26 = price
-            return {"BND": 1.0}
+            return TargetWeights({"BND": 1.0})
 
         # Update EMAs
         self._ema12 = price * self._mult12 + self._ema12 * (1 - self._mult12)
@@ -50,19 +47,20 @@ class MACDSignalQQQ_Daily(Strategy):
 
         # Need at least 26 bars before MACD is meaningful
         if self._count < 26:
-            return None
+            return Hold()
 
         # Initialize signal line
         if self._signal is None:
             self._signal = macd_line
-            return None
+            return Hold()
 
         self._signal = macd_line * self._mult9 + self._signal * (1 - self._mult9)
 
         if self._count < 35:  # 26 + 9 for signal to warm up
-            return None
+            return Hold()
 
         if macd_line > self._signal:
-            return {"QQQ": 1.0}
+            return TargetWeights({"QQQ": 1.0})
         else:
-            return {"BND": 1.0}
+            return TargetWeights({"BND": 1.0})
+

@@ -1,5 +1,5 @@
 """
-Strategy 20: Mean-Variance Optimization (3 assets, long-only) – SPY, TLT, GLD
+Strategy 20: Mean-Variance Optimization (3 assets, long-only) - SPY, TLT, GLD
 Period: 2007-01-01 to 2023-12-31
 Cadence: Monthly
 Logic: Trailing 12-month returns to estimate expected returns and covariance.
@@ -7,7 +7,7 @@ Logic: Trailing 12-month returns to estimate expected returns and covariance.
        Risk-free rate assumed 0 for simplicity.
 No shorting.
 """
-from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize
+from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize, Signal, TargetWeights, Hold
 from collections import deque
 import math
 
@@ -24,11 +24,8 @@ class MeanVarianceOpt3Asset_Monthly(Strategy):
             t: deque(maxlen=LOOKBACK + 1) for t in TICKERS
         }
 
-    def universe(self) -> list[str]:
-        return TICKERS
-
-    def cadence(self) -> Cadence:
-        return Cadence(bar_size=BarSize.MONTHLY)
+    universe = ["SPY", "TLT", "GLD"]
+    cadence = Cadence(bar_size=BarSize.MONTHLY)
 
     def _compute_returns(self, ticker: str) -> list[float] | None:
         h = list(self._history[ticker])
@@ -36,7 +33,7 @@ class MeanVarianceOpt3Asset_Monthly(Strategy):
             return None
         return [math.log(h[i] / h[i - 1]) for i in range(1, len(h))]
 
-    def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
+    def on_data(self, data: Slice, portfolio: PortfolioView) -> Signal:
         for t in TICKERS:
             p = data.close(t)
             if p is not None:
@@ -47,7 +44,7 @@ class MeanVarianceOpt3Asset_Monthly(Strategy):
         for t in TICKERS:
             r = self._compute_returns(t)
             if r is None:
-                return {"SPY": 0.34, "TLT": 0.33, "GLD": 0.33}
+                return TargetWeights({"SPY": 0.34, "TLT": 0.33, "GLD": 0.33})
             returns_dict[t] = r
 
         n = len(returns_dict[TICKERS[0]])
@@ -100,6 +97,7 @@ class MeanVarianceOpt3Asset_Monthly(Strategy):
         # Filter out zero weights
         result = {t: w for t, w in best_w.items() if w > 0.001}
         if not result:
-            return {"SPY": 0.34, "TLT": 0.33, "GLD": 0.33}
+            return TargetWeights({"SPY": 0.34, "TLT": 0.33, "GLD": 0.33})
 
-        return result
+        return TargetWeights(result)
+
