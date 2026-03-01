@@ -26,9 +26,6 @@ services:
     container_name: hqg-backtester
     expose:
       - "8005"
-    networks:
-      - internal
-      - hqg_network
     volumes:
       - ./src/strategy_temp:/app/src/strategy_temp    # TODO: add CRON job or equiv to wipe old files (save for debugging / checking for malicious attempts)
       - /var/run/docker.sock:/var/run/docker.sock 
@@ -39,3 +36,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+
+networks:
+  internal:
+  hqg_network:
+    external: true
