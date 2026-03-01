@@ -9,7 +9,6 @@ import httpx
 from datetime import datetime
 from pathlib import Path
 from src.models.request import BacktestRequest
-from src.models.execution import RawExecutionResult
 from src.execution.analysis import StaticAnalyzer
 from src.api.handlers import BacktestHandler
 from src.api.server import app
@@ -79,7 +78,7 @@ class TestCorrectness:
             initial_capital=10000.0,
         )
 
-        result = await handler.handle_backtest(request)
+        result = await handler.run_backtest(request)
 
         assert result.metrics is not None
         assert result.equity_stats is not None
@@ -96,7 +95,7 @@ class TestCorrectness:
             initial_capital=50000.0,
         )
 
-        result = await handler.handle_backtest(request)
+        result = await handler.run_backtest(request)
 
         assert result.metrics is not None
         assert result.metrics.total_orders >= 0, "SMA strategy may generate trades"
@@ -112,7 +111,7 @@ class TestCorrectness:
             initial_capital=100000.0,
         )
 
-        result = await handler.handle_backtest(request)
+        result = await handler.run_backtest(request)
 
         assert result.metrics is not None
         assert result.equity_stats is not None
@@ -128,7 +127,7 @@ class TestCorrectness:
             initial_capital=10000.0,
             commission=0.0,
         )
-        result_zero = await handler.handle_backtest(request_zero)
+        result_zero = await handler.run_backtest(request_zero)
 
         request_high = make_request(
             strategy_code=TestStrategies.VALID_BUYHOLD,
@@ -137,7 +136,7 @@ class TestCorrectness:
             initial_capital=10000.0,
             commission=0.01,
         )
-        result_high = await handler.handle_backtest(request_high)
+        result_high = await handler.run_backtest(request_high)
 
         # Higher commission should result in lower or equal final equity
         assert result_high.equity_stats.fees >= result_zero.equity_stats.fees
@@ -152,7 +151,7 @@ class TestCorrectness:
             initial_capital=10000.0,
         )
 
-        result = await handler.handle_backtest(request)
+        result = await handler.run_backtest(request)
 
         assert len(result.candles) > 0
         candle = result.candles[0]
@@ -187,7 +186,7 @@ class DivZeroStrategy(Strategy):
         )
 
         with pytest.raises(Exception) as exc_info:
-            await handler.handle_backtest(request)
+            await handler.run_backtest(request)
 
         assert "division" in str(exc_info.value).lower() or "zero" in str(exc_info.value).lower()
 
@@ -211,7 +210,7 @@ class InvalidSymbolStrategy(Strategy):
             end_date=datetime(2024, 2, 1),
         )
         with pytest.raises(Exception):
-            await handler.handle_backtest(request)
+            await handler.run_backtest(request)
     
     @pytest.mark.asyncio
     async def test_runtime_invalid_weight(self):
@@ -234,7 +233,7 @@ class OverweightStrategy(Strategy):
         )
 
         with pytest.raises(Exception) as exc_info:
-            await handler.handle_backtest(request)
+            await handler.run_backtest(request)
 
         assert "weight" in str(exc_info.value).lower() or "1.0" in str(exc_info.value)
 
@@ -325,7 +324,7 @@ class TestIntegration:
             initial_capital=100000.0,
         )
 
-        result = await handler.handle_backtest(request)
+        result = await handler.run_backtest(request)
 
         assert result.metrics is not None
         assert result.equity_stats is not None
@@ -345,7 +344,7 @@ class TestIntegration:
             initial_capital=100000.0,
         )
 
-        result = await handler.handle_backtest(request)
+        result = await handler.run_backtest(request)
 
         assert result.metrics is not None
         assert result.equity_stats is not None
@@ -485,25 +484,22 @@ async def ProfileTests():
     """
     profiler = cProfile.Profile()
 
-    test_cases = [TestStrategies.VALID_BUYHOLD, TestStrategies.VALID_SMA, TestStrategies.VALID_MULTIASSET]
-
     print(f"\n{'='*70}")
     print(f"Validation Pipeline Profiling")
     print(f"{'='*70}")
-    print(f"Running {len(test_cases)} test cases\n")
 
     # Profile basic small-scale test cases
     # profiler.enable()
     # handler = BacktestHandler()
     # for code in test_cases:
     #     request = make_request(code)
-    #     br = await handler.handle_backtest(request=request)
+    #     br = await handler.run_backtest(request=request)
     # profiler.disable()
     # print(br.parameters, br.equity_stats, br.metrics)
     
     # Profile integration test
     profiler.enable()
-    await TestStress().test_concurrent_backtest_requests()
+    await TestIntegration().test_sma_crossover_strategy()
     profiler.disable()
 
     stream = io.StringIO()
