@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from ..models.jobs import JobRecord, JobStatus
+from ..models.response import BacktestResponse
 
 
 class JobStore:
@@ -37,19 +38,21 @@ class JobStore:
                 record.status = JobStatus.RUNNING
                 record.started_at = datetime.now(timezone.utc)
 
-    async def set_completed(self, job_id: str) -> None:
+    async def set_completed(self, job_id: str, result: BacktestResponse) -> None:
         async with self._lock:
             record = self._store.get(job_id)
             if record:
                 record.status = JobStatus.COMPLETED
                 record.completed_at = datetime.now(timezone.utc)
+                record.result = result
 
-    async def set_failed(self, job_id: str) -> None:
+    async def set_failed(self, job_id: str, error: str) -> None:
         async with self._lock:
             record = self._store.get(job_id)
             if record:
                 record.status = JobStatus.FAILED
                 record.completed_at = datetime.now(timezone.utc)
+                record.error = error
 
     async def set_cancelled(self, job_id: str) -> None:
         async with self._lock:
