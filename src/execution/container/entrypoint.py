@@ -5,7 +5,7 @@ import pstats
 import io
 import os
 import pandas as pd
-from hqg_algorithms import Strategy, BarSize
+from hqg_algorithms import Strategy, BarSize, Slice
 from typing import Dict, Any
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
@@ -13,7 +13,6 @@ from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
 
 PROFILE = os.environ.get("HQG_PROFILE", "0") == "1"
-
 
 def main():
     try:
@@ -85,6 +84,9 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
         data = json_to_dataframe(payload.market_data)
 
+        # Pre-build timestamp:Slice dict (avoid per-step MultiIndex slicing in loop)
+        slices, timestamps = precompute_slices(data)
+
         # TODO: refactor w/ StrategyLoader (no write)
         # Load strategy class
         strategy_namespace = {}
@@ -106,11 +108,12 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         portfolio = Portfolio(initial_cash=payload.initial_capital, symbols=symbols)
 
         # Run backtest loop
-        cadence = strategy.cadence
-        trades, ohlc = backtester._run_loop(strategy, data, portfolio, cadence)
+        cadence = strategy.cadence()
+        trades, ohlc = backtester._run_loop(strategy, slices, timestamps, portfolio)
 
         # Get final prices
-        final_prices = backtester._get_final_prices(data, symbols)
+        final_slice = slices[timestamps[-1]]
+        final_prices = backtester._get_prices(final_slice, symbols)
 
         return {
             "trades": [t.model_dump() for t in trades],
@@ -170,6 +173,25 @@ def json_to_dataframe(market_data: Dict[str, Any]) -> pd.DataFrame:
     formatted.columns = columns
 
     return formatted
+
+def precompute_slices(data: pd.DataFrame) -> tuple[Dict, list]:
+    """
+    Build a dictionary of timestamps: slices for backtest loop
+    """
+    timestamps = data.index.tolist()
+    columns = data.columns.tolist()  # [(symbol, field), ...]; e.g. [('AAPL', 'close'), ...]
+    values = data.values  # shape: (n_timestamps, n_columns)
+
+    symbols = list(dict.fromkeys(s for s, _ in columns))
+
+    slices = {}
+    for i, ts in enumerate(timestamps):
+        slice_data = {s: {} for s in symbols}          # pre-allocate once per timestamp
+        for j, (symbol, field) in enumerate(columns):
+            slice_data[symbol][field] = values[i, j]
+        slices[ts] = Slice(slice_data)
+    
+    return slices, timestamps
 
 
 if __name__ == "__main__":

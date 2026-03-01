@@ -493,18 +493,18 @@ async def ProfileTests():
     print(f"Running {len(test_cases)} test cases\n")
 
     # Profile basic small-scale test cases
-    # profiler.enable()
-    # handler = BacktestHandler()
-    # for code in test_cases:
-    #     request = make_request(code)
-    #     br = await handler.handle_backtest(request=request)
-    # profiler.disable()
-    # print(br.parameters, br.equity_stats, br.metrics)
+    profiler.enable()
+    handler = BacktestHandler()
+    for code in test_cases:
+        request = make_request(code)
+        br = await handler.handle_backtest(request=request)
+    profiler.disable()
+    print(br.parameters, br.equity_stats, br.metrics)
     
     # Profile integration test
-    profiler.enable()
-    await TestStress().test_concurrent_backtest_requests()
-    profiler.disable()
+    #profiler.enable()
+    #await TestStress().test_concurrent_backtest_requests()
+    #profiler.disable()
 
     stream = io.StringIO()
     stats = pstats.Stats(profiler, stream=stream)
