@@ -66,7 +66,7 @@ async def run_backtest_sync(request: BacktestRequest):
     - initial_capital: Starting capital (default: 10000)
     """
     try:
-        result = await handler.handle_backtest(request)
+        result = await handler.run_backtest(request)
         return result
     except ValidationException as e:
         # Analysis errors, displayed in code editor
