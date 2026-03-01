@@ -5,7 +5,7 @@ import pstats
 import io
 import os
 import pandas as pd
-from hqg_algorithms import Strategy, BarSize, Slice
+from hqg_algorithms import Strategy, BarSize, Slice, Bar
 from typing import Dict, Any
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
@@ -108,12 +108,11 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         portfolio = Portfolio(initial_cash=payload.initial_capital, symbols=symbols)
 
         # Run backtest loop
-        cadence = strategy.cadence()
         trades, ohlc = backtester._run_loop(strategy, slices, timestamps, portfolio)
 
         # Get final prices
         final_slice = slices[timestamps[-1]]
-        final_prices = backtester._get_prices(final_slice, symbols)
+        final_prices = backtester._get_close(final_slice, symbols)
 
         return {
             "trades": [t.model_dump() for t in trades],
@@ -123,7 +122,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_cash": portfolio.cash,
             "final_positions": portfolio.positions.copy(),
             "errors": errors,
-            "bar_size": cadence.bar_size
+            "bar_size": strategy.cadence.bar_size
         }
 
     except Exception as e:
@@ -184,13 +183,22 @@ def precompute_slices(data: pd.DataFrame) -> tuple[Dict, list]:
 
     symbols = list(dict.fromkeys(s for s, _ in columns))
 
+    # Build column index lookup: {(symbol, field): col_index}
+    col_index = {(s, f): j for j, (s, f) in enumerate(columns)}
+
     slices = {}
     for i, ts in enumerate(timestamps):
-        slice_data = {s: {} for s in symbols}          # pre-allocate once per timestamp
-        for j, (symbol, field) in enumerate(columns):
-            slice_data[symbol][field] = values[i, j]
-        slices[ts] = Slice(slice_data)
-    
+        bars = {}
+        for s in symbols:
+            bars[s] = Bar(
+                open=float(values[i, col_index[(s, "open")]]),
+                high=float(values[i, col_index[(s, "high")]]),
+                low=float(values[i, col_index[(s, "low")]]),
+                close=float(values[i, col_index[(s, "close")]]),
+                volume=float(values[i, col_index[(s, "volume")]]) if (s, "volume") in col_index else None,
+            )
+        slices[ts] = Slice(bars)
+
     return slices, timestamps
 
 
