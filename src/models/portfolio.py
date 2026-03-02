@@ -134,25 +134,20 @@ class Portfolio:
         portfolio_high = self.cash
         portfolio_low = self.cash
         portfolio_close = self.cash
-        
+
         for symbol, shares in self.positions.items():
             if shares <= 0:
                 continue
-                
-            open_price = slice_obj[symbol].get("open")
-            high_price = slice_obj[symbol].get("high")
-            low_price = slice_obj[symbol].get("low")
-            close_price = slice_obj[symbol].get("close")
-            
-            if open_price is not None:
-                portfolio_open += shares * open_price
-            if high_price is not None:
-                portfolio_high += shares * high_price
-            if low_price is not None:
-                portfolio_low += shares * low_price
-            if close_price is not None:
-                portfolio_close += shares * close_price
-        
+
+            bar = slice_obj.bar(symbol)
+            if bar is None:
+                continue
+
+            portfolio_open += shares * bar.open
+            portfolio_high += shares * bar.high
+            portfolio_low += shares * bar.low
+            portfolio_close += shares * bar.close
+
         return {
             'timestamp': timestamp,
             'open': portfolio_open,

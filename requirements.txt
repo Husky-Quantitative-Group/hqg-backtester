@@ -1,7 +1,7 @@
 fastapi>=0.128.0
 uvicorn==0.32.0
 pydantic==2.10.0
-hqg-algorithms>=0.1.1
+hqg-algorithms>=1.0.0
 numpy
 pandas>=3.0
 yfinance

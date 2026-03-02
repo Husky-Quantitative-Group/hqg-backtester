@@ -1,5 +1,5 @@
 """
-Strategy 16: Rate-of-Change Ranking – Top 2 of 5 asset classes
+Strategy 16: Rate-of-Change Ranking - Top 2 of 5 asset classes
 Period: 2005-01-01 to 2024-12-31
 Cadence: Monthly
 Logic: Compute 6-month rate of change for SPY, EFA, EEM, TLT, GLD.
@@ -7,7 +7,7 @@ Logic: Compute 6-month rate of change for SPY, EFA, EEM, TLT, GLD.
        If neither has positive ROC, hold SHY.
 No shorting.
 """
-from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize
+from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize, Signal, TargetWeights, Hold
 from collections import deque
 
 START_DATE = "2005-01-01"
@@ -23,13 +23,10 @@ class ROCRankingTop2Monthly(Strategy):
             t: deque(maxlen=LOOKBACK + 1) for t in ASSETS
         }
 
-    def universe(self) -> list[str]:
-        return ASSETS + ["SHY"]
+    universe = ["SPY", "EFA", "EEM", "TLT", "GLD", "SHY"]
+    cadence = Cadence(bar_size=BarSize.MONTHLY)
 
-    def cadence(self) -> Cadence:
-        return Cadence(bar_size=BarSize.MONTHLY)
-
-    def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
+    def on_data(self, data: Slice, portfolio: PortfolioView) -> Signal:
         for t in ASSETS:
             p = data.close(t)
             if p is not None:
@@ -37,7 +34,7 @@ class ROCRankingTop2Monthly(Strategy):
 
         ready = [t for t in ASSETS if len(self._history[t]) == LOOKBACK + 1]
         if not ready:
-            return {"SHY": 1.0}
+            return TargetWeights({"SHY": 1.0})
 
         roc = {}
         for t in ready:
@@ -48,7 +45,7 @@ class ROCRankingTop2Monthly(Strategy):
         top2 = [(t, r) for t, r in ranked[:2] if r > 0]
 
         if not top2:
-            return {"SHY": 1.0}
+            return TargetWeights({"SHY": 1.0})
 
         w = 1.0 / 2.0
         weights: dict[str, float] = {t: w for t, _ in top2}
@@ -57,4 +54,5 @@ class ROCRankingTop2Monthly(Strategy):
         if remaining > 0.001:
             weights["SHY"] = remaining
 
-        return weights
+        return TargetWeights(weights)
+
