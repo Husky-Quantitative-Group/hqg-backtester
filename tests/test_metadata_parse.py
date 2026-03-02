@@ -1,4 +1,4 @@
-"""test_parse_metadata.py — verify AST extraction handles all cases."""
+"""test_parse_metadata.py - verify AST extraction handles all cases."""
 
 import pytest
 from src.utils.strategy_metadata import extract_metadata
@@ -50,13 +50,13 @@ class MyStrategy(Strategy):
         meta = extract_metadata("""
 class MyStrategy(Strategy):
     universe = ["SPY"]
-    cadence = Cadence(execution=ExecutionTiming.OPEN_TO_OPEN)
+    cadence = Cadence(execution=ExecutionTiming.CLOSE_TO_NEXT_OPEN)
 
     def on_data(self, data, portfolio):
         pass
 """)
         assert meta.cadence.bar_size.value == "1d"
-        assert meta.cadence.execution.value == "open_to_open"
+        assert meta.cadence.execution.value == "close_to_next_open"
 
     def test_cadence_no_args_uses_defaults(self):
         meta = extract_metadata("""
@@ -103,6 +103,80 @@ class MyStrategy(Strategy):
 """)
         assert meta.universe == ["SPY"]
 
+    def test_non_strategy_class_before_strategy(self):
+        meta = extract_metadata("""
+class Helper:
+    x = 10
+
+class MyStrategy(Strategy):
+    universe = ["SPY", "IEF"]
+    cadence = Cadence(bar_size=BarSize.WEEKLY)
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+        assert meta.universe == ["SPY", "IEF"]
+
+    def test_first_strategy_class_wins(self):
+        meta = extract_metadata("""
+class First(Strategy):
+    universe = ["SPY"]
+
+    def on_data(self, data, portfolio):
+        pass
+
+class Second(Strategy):
+    universe = ["AAPL", "MSFT"]
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+        assert meta.universe == ["SPY"]
+
+
+# ── Universe normalization ───────────────────────────────────────────
+
+class TestUniverseNormalization:
+    def test_uppercases_tickers(self):
+        meta = extract_metadata("""
+class MyStrategy(Strategy):
+    universe = ["aapl", "msft"]
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+        assert meta.universe == ["AAPL", "MSFT"]
+
+    def test_strips_whitespace(self):
+        meta = extract_metadata("""
+class MyStrategy(Strategy):
+    universe = ["  AAPL  ", " MSFT"]
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+        assert meta.universe == ["AAPL", "MSFT"]
+
+    def test_deduplicates(self):
+        meta = extract_metadata("""
+class MyStrategy(Strategy):
+    universe = ["SPY", "spy", "SPY"]
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+        assert meta.universe == ["SPY"]
+
+    def test_deduplicates_after_normalization(self):
+        meta = extract_metadata("""
+class MyStrategy(Strategy):
+    universe = ["aapl", "AAPL", " aapl "]
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+        assert meta.universe == ["AAPL"]
+
 
 # ── No strategy class found ─────────────────────────────────────────
 
@@ -138,7 +212,7 @@ class TestSyntaxError:
 
 class TestBadUniverse:
     def test_universe_is_string(self):
-        with pytest.raises(ValueError, match="list of strings"):
+        with pytest.raises(ValueError, match="must be a list"):
             extract_metadata("""
 class MyStrategy(Strategy):
     universe = "AAPL"
@@ -148,7 +222,7 @@ class MyStrategy(Strategy):
 """)
 
     def test_universe_is_int(self):
-        with pytest.raises(ValueError, match="list of strings"):
+        with pytest.raises(ValueError, match="must be a list"):
             extract_metadata("""
 class MyStrategy(Strategy):
     universe = 42
@@ -158,7 +232,7 @@ class MyStrategy(Strategy):
 """)
 
     def test_universe_has_non_string_elements(self):
-        with pytest.raises(ValueError, match="list of strings"):
+        with pytest.raises(ValueError, match="expected string"):
             extract_metadata("""
 class MyStrategy(Strategy):
     universe = ["AAPL", 123]
@@ -204,6 +278,26 @@ class MyStrategy(Strategy):
             extract_metadata("""
 class MyStrategy(Strategy):
     universe = ["AAPL"] + ["MSFT"]
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+
+    def test_universe_whitespace_ticker(self):
+        with pytest.raises(ValueError, match="empty or whitespace"):
+            extract_metadata("""
+class MyStrategy(Strategy):
+    universe = ["SPY", "  "]
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+
+    def test_universe_ticker_too_long(self):
+        with pytest.raises(ValueError, match="exceeds 12"):
+            extract_metadata("""
+class MyStrategy(Strategy):
+    universe = ["AREALLYLONGTICKER"]
 
     def on_data(self, data, portfolio):
         pass
@@ -269,7 +363,7 @@ class MyStrategy(Strategy):
 """)
 
     def test_cadence_bar_size_is_variable(self):
-        with pytest.raises(ValueError, match="must be BarSize.X"):
+        with pytest.raises(ValueError, match="must be BarSize"):
             extract_metadata("""
 class MyStrategy(Strategy):
     universe = ["SPY"]
@@ -280,11 +374,22 @@ class MyStrategy(Strategy):
 """)
 
     def test_cadence_bar_size_is_string_literal(self):
-        with pytest.raises(ValueError, match="must be BarSize.X"):
+        with pytest.raises(ValueError, match="must be BarSize"):
             extract_metadata("""
 class MyStrategy(Strategy):
     universe = ["SPY"]
     cadence = Cadence(bar_size="1d")
+
+    def on_data(self, data, portfolio):
+        pass
+""")
+
+    def test_cadence_unknown_kwarg(self):
+        with pytest.raises(ValueError, match="unknown argument"):
+            extract_metadata("""
+class MyStrategy(Strategy):
+    universe = ["SPY"]
+    cadence = Cadence(bar_size=BarSize.DAILY, foo=BarSize.WEEKLY)
 
     def on_data(self, data, portfolio):
         pass
