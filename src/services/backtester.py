@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional
-from hqg_algorithms import Strategy, Slice, PortfolioView, TargetWeights, Hold, Liquidate
+from hqg_algorithms import Strategy, Slice, PortfolioView, TargetWeights, Hold, Liquidate, ExecutionTiming
 from ..models.portfolio import Portfolio
 from ..models.response import Trade
 from ..services.data_provider.base_provider import BaseDataProvider
@@ -9,6 +9,113 @@ class Backtester:
     def __init__(self, data_provider: Optional[BaseDataProvider] = None):
         self.data_provider = data_provider
     
+    # TODO: add implementation for additional features: param / data noise, dropout, etc. 
+    #async def run_advanced():
+    #    pass
+
+    # TODO: add a new route + hqg-dash tab -- MC simulation
+
+    
+    def _run_loop(self, strategy: Strategy, slices: Dict, timestamps: list, portfolio: Portfolio) -> tuple[List[Trade], Dict]:
+        """
+        Core backtest loop.
+        
+        Args:
+            strategy: Strategy instance
+            slices: Pre-built dict of timestamp -> Slice
+            timestamps: Ordered list of timestamps
+            portfolio: Portfolio instance
+        
+        Returns:
+            List of Trades
+            Dict of portfolio OHLC
+        """
+        universe = strategy.universe
+        execution = strategy.cadence.execution
+        trades = []
+        ohlc = []
+
+        for i, timestamp in enumerate(timestamps):
+            slice_obj = slices[timestamp]
+
+            # update ohlc with current positions (before rebalancing)
+            ohlc.append(portfolio.update_ohlc(timestamp, slice_obj))
+
+            prices = self._get_close(slice_obj, universe)
+            tv = portfolio.get_total_value(prices)
+            portfolio.update_equity_curve(timestamp, tv)
+
+            portfolio_view = PortfolioView(
+                equity=tv,
+                cash=portfolio.cash,
+                positions=portfolio.positions,
+                weights=portfolio.get_weights(prices, tv)
+            )
+
+            # determine target weights via Signal
+            signal = strategy.on_data(slice_obj, portfolio_view)
+            if isinstance(signal, Hold):
+                continue
+            if isinstance(signal, Liquidate):
+                target_weights = {symbol: 0.0 for symbol in universe}
+            elif isinstance(signal, TargetWeights):
+                target_weights = dict(signal.weights)
+            else:
+                raise TypeError(f"on_data returned unknown signal type: {type(signal).__name__}")
+
+            # determine execution prices via ExecutionTiming
+            if execution == ExecutionTiming.CLOSE_TO_CLOSE:
+                exec_prices = prices
+                exec_timestamp = timestamp
+
+            elif execution == ExecutionTiming.CLOSE_TO_NEXT_OPEN:
+                if i + 1 >= len(timestamps):
+                    break
+                next_slice = slices[timestamps[i + 1]]
+                exec_prices = self._get_open(next_slice, universe)
+                exec_timestamp = timestamps[i + 1]
+
+            else:
+                raise ValueError(f"Unsupported ExecutionTiming: {execution}")
+
+            new_trades = portfolio.rebalance(target_weights, exec_prices, exec_timestamp)
+            trades.extend(new_trades)
+
+        # convert OHLC list to dict
+        ohlc_dict = {}
+        for entry in ohlc:
+            ts = entry['timestamp']
+            ohlc_dict[str(ts)] = {
+                'open': entry['open'],
+                'high': entry['high'],
+                'low': entry['low'],
+                'close': entry['close']
+            }
+
+        return trades, ohlc_dict
+
+
+    def _get_close(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
+        """Extract current prices from slice for given symbols."""
+        prices = {}
+        for symbol in symbols:
+            price = slice_obj.close(symbol)
+            if price is not None:
+                prices[symbol] = price
+        return prices
+
+    def _get_open(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
+        """Extract open prices from slice for given symbols."""
+        prices = {}
+        for symbol in symbols:
+            price = slice_obj.open(symbol)
+            if price is not None:
+                prices[symbol] = price
+        return prices
+    
+
+    ###############################################################################
+
     # NOTE: this function currently fails, as RawExecutionResult now requires more fields
     # Do we need this? I like the idea of providing the option to clone the repo and just import a Backtester + run this function
     # async def run(self, strategy: Strategy, start_date: datetime, end_date: datetime, initial_capital: float = 10000.0) -> RawExecutionResult:
@@ -55,96 +162,7 @@ class Backtester:
     #         final_positions=portfolio.positions.copy(),
     #         final_cash=portfolio.cash
     #     )
-    
-    # TODO: add implementation for additional features: param / data noise, dropout, etc. 
-    #async def run_advanced():
-    #    pass
 
-    
-    # TODO duckdb?
-    # NOTE: previous implementation is decide on bar close, execute on bar + exec_lag_bars close
-    #   this does not work when cadence is > hourly
-    # The other easy simplification is to assume immediate trading, which we do below.
-
-    # NOTE: with yahoo finance, the order dates/times are not exact if weekly/monthly. Trading on Jan 1st means it traded on the close of the most recent trading day. our internal calc fixes this.
-    def _run_loop(self, strategy: Strategy, slices: Dict, timestamps: list, portfolio: Portfolio) -> tuple[List[Trade], Dict]:
-        """
-        Core backtest loop.
-        
-        Args:
-            strategy: Strategy instance
-            slices: Pre-built dict of timestamp -> Slice
-            timestamps: Ordered list of timestamps
-            portfolio: Portfolio instance
-        
-        Returns:
-            List of Trades
-            Dict of portfolio OHLC
-        """
-        universe = strategy.universe
-        trades = []
-        ohlc = []
-
-        for _, timestamp in enumerate(timestamps):
-            slice_obj = slices[timestamp]
-
-            # update ohlc with current positions (before rebalancing)
-            ohlc.append(portfolio.update_ohlc(timestamp, slice_obj))
-
-            # build portfolio view
-            prices = self._get_close(slice_obj, universe)
-            tv = portfolio.get_total_value(prices)
-
-            portfolio.update_equity_curve(timestamp, tv)
-
-            portfolio_view = PortfolioView(
-                equity=tv,
-                cash=portfolio.cash,
-                positions=portfolio.positions,
-                weights=portfolio.get_weights(prices, tv)
-            )
-
-            # route via signal type
-            signal = strategy.on_data(slice_obj, portfolio_view)
-
-            if isinstance(signal, Hold):
-                continue
-            if isinstance(signal, Liquidate):
-                target_weights = {symbol: 0.0 for symbol in universe}
-            elif isinstance(signal, TargetWeights):
-                target_weights = dict(signal.weights)
-            else:
-                raise TypeError(f"on_data returned unknown signal type: {type(signal).__name__}")
-
-            # TODO: support ExecutionTiming (CLOSE_TO_NEXT_OPEN, OPEN_TO_OPEN)
-            # Currently assumes CLOSE_TO_CLOSE: signal and fill on same bar's close
-            exec_prices = prices
-
-            new_trades = portfolio.rebalance(target_weights, exec_prices, timestamp)
-            trades.extend(new_trades)
-        
-        # convert OHLC list to dict: timestamp -> {open, high, low, close}
-        ohlc_dict = {}
-        for entry in ohlc:
-            ts = entry['timestamp']
-            ohlc_dict[str(ts)] = {
-                'open': entry['open'],
-                'high': entry['high'],
-                'low': entry['low'],
-                'close': entry['close']
-            }
-
-        return trades, ohlc_dict
-
-
-    def _get_close(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
-        """Extract current prices from slice for given symbols."""
-        prices = {}
-        for symbol in symbols:
-            price = slice_obj.close(symbol)
-            if price is not None:
-                prices[symbol] = price
-        return prices
 
     # NOTE: not used (except by main loop, which is currently unsupported)
     # def _create_slice(self, timestamp_data: pd.Series) -> Slice:
