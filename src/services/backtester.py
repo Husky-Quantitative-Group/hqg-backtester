@@ -1,12 +1,8 @@
-import pandas as pd
 from typing import List, Dict, Optional
-from datetime import datetime
-from hqg_algorithms import Strategy, Slice, PortfolioView, Cadence
+from hqg_algorithms import Strategy, Slice, PortfolioView, TargetWeights, Hold, Liquidate
 from ..models.portfolio import Portfolio
 from ..models.response import Trade
 from ..services.data_provider.base_provider import BaseDataProvider
-from ..execution.executor import RawExecutionResult
-
 
 class Backtester:
     
@@ -85,19 +81,20 @@ class Backtester:
             List of Trades
             Dict of portfolio OHLC
         """
+        universe = strategy.universe
         trades = []
         ohlc = []
-        
-        for i, timestamp in enumerate(timestamps):
-            # Look up pre-built slice (O(1) dict access instead of pandas .loc)
+
+        for _, timestamp in enumerate(timestamps):
             slice_obj = slices[timestamp]
 
             # update ohlc with current positions (before rebalancing)
             ohlc.append(portfolio.update_ohlc(timestamp, slice_obj))
 
-            # make portfolio view
-            prices = self._get_prices(slice_obj, strategy.universe())
+            # build portfolio view
+            prices = self._get_close(slice_obj, universe)
             tv = portfolio.get_total_value(prices)
+
             portfolio.update_equity_curve(timestamp, tv)
 
             portfolio_view = PortfolioView(
@@ -106,30 +103,24 @@ class Backtester:
                 positions=portfolio.positions,
                 weights=portfolio.get_weights(prices, tv)
             )
-            
-            # get target weights
-            target_weights = strategy.on_data(slice_obj, portfolio_view)
-            
-            # no rebalance if None
-            if target_weights is None:
+
+            # route via signal type
+            signal = strategy.on_data(slice_obj, portfolio_view)
+
+            if isinstance(signal, Hold):
                 continue
-            
-            # TODO (low priority): support usage of cadence.exec_lag_bars
-            # TODO (low priority): support usage of cadence.call_phase
+            if isinstance(signal, Liquidate):
+                target_weights = {symbol: 0.0 for symbol in universe}
+            elif isinstance(signal, TargetWeights):
+                target_weights = dict(signal.weights)
+            else:
+                raise TypeError(f"on_data returned unknown signal type: {type(signal).__name__}")
 
-            exec_index = i      # assumes cadence.exec_lag_bars = DEFAULT (0)
-            if exec_index >= len(timestamps):
-                break
-            
-            exec_timestamp = timestamps[exec_index]
-            exec_slice = slices[exec_timestamp]
-            exec_prices = self._get_prices(exec_slice, strategy.universe())
+            # TODO: support ExecutionTiming (CLOSE_TO_NEXT_OPEN, OPEN_TO_OPEN)
+            # Currently assumes CLOSE_TO_CLOSE: signal and fill on same bar's close
+            exec_prices = prices
 
-            new_trades = portfolio.rebalance(
-                target_weights,
-                exec_prices,
-                exec_timestamp
-            )
+            new_trades = portfolio.rebalance(target_weights, exec_prices, timestamp)
             trades.extend(new_trades)
         
         # convert OHLC list to dict: timestamp -> {open, high, low, close}
@@ -142,10 +133,11 @@ class Backtester:
                 'low': entry['low'],
                 'close': entry['close']
             }
-        
+
         return trades, ohlc_dict
 
-    def _get_prices(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
+
+    def _get_close(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
         """Extract current prices from slice for given symbols."""
         prices = {}
         for symbol in symbols:

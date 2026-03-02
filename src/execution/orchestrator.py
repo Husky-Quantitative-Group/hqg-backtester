@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 from ..models.request import BacktestRequest, ValidationException, ExecutionException
 from ..services.data_provider.yf_provider import YFDataProvider
-from ..utils.strategy_loader import StrategyLoader
+from ..utils.strategy_metadata import extract_metadata
 from .executor import Executor, ExecutionPayload, RawExecutionResult
 from .output_validator import OutputValidator
 from .analysis import StaticAnalyzer
@@ -32,7 +32,6 @@ class Orchestrator:
     _semaphore = asyncio.Semaphore(13)  # 13 maximum backtests at a time (one for each member)
 
     def __init__(self):
-        self.strategy_loader = StrategyLoader()
         self.data_provider = YFDataProvider()
         self.executor = Executor()
         self.output_validator = OutputValidator()
@@ -51,31 +50,29 @@ class Orchestrator:
                     raise ValidationException(request.errors)
  
                 # Parse strategy code to extract universe + cadence
-                strategy_class = self.strategy_loader.load_strategy(request.strategy_code)
-                strategy = strategy_class()
-                symbols = strategy.universe()
-                cadence = strategy.cadence()
+                strategy_metadata = extract_metadata(request.strategy_code)
+                universe, cadence = strategy_metadata.universe, strategy_metadata.cadence
 
-                logger.info(f"Parsed strategy: universe={symbols}, bar_size={cadence.bar_size}")
+                logger.info(f"Parsed strategy: universe={universe}, bar_size={cadence.bar_size}")
             except ValueError as e:
                 request.errors.add(str(e))
                 raise ValidationException(request.errors)
             try:
                 data = await asyncio.to_thread(
                     self.data_provider.get_data,
-                    symbols=symbols,
+                    symbols=universe,
                     start_date=request.start_date,
                     end_date=request.end_date,
                     bar_size=cadence.bar_size,
                 )
                 # edge case
                 if data.empty:
-                    request.errors.add("No market data available for the specified date range and symbols")
+                    request.errors.add("No market data available for the specified date range and universe")
                     raise ExecutionException(request.errors)
-                logger.info(f"Fetched {len(data)} bars for {symbols}")
+                logger.info(f"Fetched {len(data)} bars for {universe}")
 
                 # Convert DataFrame → JSON for container
-                market_data_json = dataframe_to_json(data, symbols)
+                market_data_json = dataframe_to_json(data, universe)
 
                 # Build execution payload
                 payload = ExecutionPayload(

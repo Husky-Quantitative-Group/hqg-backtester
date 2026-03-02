@@ -1,5 +1,6 @@
 pandas
 pydantic
 pydantic-settings
-hqg-algorithms>=0.1.1
+hqg-algorithms>=1.0.0
+cvxpy
 numpy

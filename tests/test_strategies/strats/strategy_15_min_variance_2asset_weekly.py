@@ -1,14 +1,14 @@
 """
-Strategy 15: Minimum Variance (2-asset simplified) – SPY / TLT
+Strategy 15: Minimum Variance (2-asset simplified) - SPY / TLT
 Period: 2006-01-01 to 2021-12-31
 Cadence: Weekly
 Logic: Compute trailing 26-week covariance matrix for SPY and TLT.
        Solve for the minimum variance portfolio weights (long-only, sum to 1).
-       Analytical solution for 2 assets: w_SPY = (σ²_TLT - σ_SPY_TLT) / (σ²_SPY + σ²_TLT - 2·σ_SPY_TLT)
+       Analytical solution for 2 assets: w_SPY = (std_TLT^2 - std_SPY_TLT) / (std_SPY^2 + std_TLT^2 - 2*std_SPY_TLT)
        Clamp to [0, 1].
 No shorting.
 """
-from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize
+from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize, Signal, TargetWeights, Hold
 from collections import deque
 import math
 
@@ -23,13 +23,10 @@ class MinVariance2Asset_Weekly(Strategy):
         self._spy_prices = deque(maxlen=LOOKBACK + 1)
         self._tlt_prices = deque(maxlen=LOOKBACK + 1)
 
-    def universe(self) -> list[str]:
-        return ["SPY", "TLT"]
+    universe = ["SPY", "TLT"]
+    cadence = Cadence(bar_size=BarSize.WEEKLY)
 
-    def cadence(self) -> Cadence:
-        return Cadence(bar_size=BarSize.WEEKLY)
-
-    def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
+    def on_data(self, data: Slice, portfolio: PortfolioView) -> Signal:
         spy_p = data.close("SPY")
         tlt_p = data.close("TLT")
 
@@ -39,7 +36,7 @@ class MinVariance2Asset_Weekly(Strategy):
             self._tlt_prices.append(tlt_p)
 
         if len(self._spy_prices) < LOOKBACK + 1 or len(self._tlt_prices) < LOOKBACK + 1:
-            return {"SPY": 0.5, "TLT": 0.5}
+            return TargetWeights({"SPY": 0.5, "TLT": 0.5})
 
         spy_list = list(self._spy_prices)
         tlt_list = list(self._tlt_prices)
@@ -57,10 +54,11 @@ class MinVariance2Asset_Weekly(Strategy):
 
         denom = var_s + var_t - 2 * cov_st
         if abs(denom) < 1e-12:
-            return {"SPY": 0.5, "TLT": 0.5}
+            return TargetWeights({"SPY": 0.5, "TLT": 0.5})
 
         w_spy = (var_t - cov_st) / denom
         w_spy = max(0.0, min(1.0, w_spy))  # clamp long-only
         w_tlt = 1.0 - w_spy
 
-        return {"SPY": w_spy, "TLT": w_tlt}
+        return TargetWeights({"SPY": w_spy, "TLT": w_tlt})
+
