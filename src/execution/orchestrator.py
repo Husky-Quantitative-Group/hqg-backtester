@@ -3,10 +3,10 @@ import logging
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any
+from hqg_algorithms import extract_metadata
 
 from ..models.request import BacktestRequest, ValidationException, ExecutionException
 from ..services.data_provider.yf_provider import YFDataProvider
-from ..utils.strategy_metadata import extract_metadata
 from .executor import Executor, ExecutionPayload, RawExecutionResult
 from .output_validator import OutputValidator
 from .analysis import StaticAnalyzer
