@@ -225,8 +225,6 @@ class YFDataProvider(BaseDataProvider):
         # TODO: change data provider to make hourly backtests meaningful.
         # Until then, don't support it (enforced in hqg-algorithms)
 
-        symbols = [s.upper() for s in symbols]
-
         # widen the fetch window so the cache is useful for future requests
         fetch_start = min(start_date, _DEFAULT_HISTORY_START)
         fetch_end = self._last_trading_day()
