@@ -77,6 +77,7 @@ class BacktestResponse(BaseModel):
     API response format - matches frontend TypeScript structure.
     This is what the React component expects to receive.
     """
+    job_id: str
     parameters: BacktestParameters
     metrics: PerformanceMetrics
     equity_stats: EquityStats

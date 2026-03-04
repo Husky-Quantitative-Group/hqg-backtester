@@ -1,22 +1,38 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
 from ..config.logging_config import setup_logging
 from ..config.settings import settings
-import logging
 
-# before importing other modules
+# Configure logging before importing application modules that use it
 setup_logging(settings.LOG_DIR)
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from .routes import router
-from .middleware import (
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from .routes import router  # noqa: E402
+from .middleware import (  # noqa: E402
     TimeoutMiddleware,
     RateLimitMiddleware,
     RequestSizeLimitMiddleware,
     HqgAuthMiddleware,
 )
+from ..scheduler.scheduler import scheduler  # noqa: E402
 
-app = FastAPI(title="Backtester API", version="1.0.0")
+# spawn our scheduler in background, run forever
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(scheduler.run())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(title="Backtester API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
