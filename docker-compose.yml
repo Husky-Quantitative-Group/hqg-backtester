@@ -24,8 +24,10 @@ services:
       - https_proxy=${HTTPS_PROXY}
       - no_proxy=${NO_PROXY}
     container_name: hqg-backtester
-    ports:
-      - "${API_BIND:-127.0.0.1}:${API_PUBLISHED_PORT:-8005}:8005"
+    expose:
+      - "8005"
+    networks:
+      - hqg_network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock 
     restart: unless-stopped
@@ -37,6 +39,5 @@ services:
       start_period: 5s
 
 networks:
-  internal:
   hqg_network:
     external: true
