@@ -42,6 +42,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    networks:
+      - hqg_network
 
 networks:
   internal:
