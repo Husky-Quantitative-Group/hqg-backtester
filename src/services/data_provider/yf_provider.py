@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 _cache_locks: dict[str, threading.Lock] = {}
 _cache_locks_mutex = threading.Lock()
 
+# yf.download() is not thread-safe — concurrent calls corrupt shared internal
+_yfinance_lock = threading.Lock()
+
 # Earliest date we'll ever request from yfinance. Keeps cache broad so
 # future requests for the same symbol are almost always a hit.
 _DEFAULT_HISTORY_START = datetime(2000, 1, 1)
@@ -126,15 +129,16 @@ class YFDataProvider(BaseDataProvider):
         """
         logger.info(f"yfinance download: {symbols}  {start.date()} -> {end.date()}")
 
-        raw = yf.download(
-            tickers=symbols,
-            start=start,
-            end=end + timedelta(days=1),
-            interval="1d",
-            progress=False,
-            group_by="ticker",
-            auto_adjust=True,
-        )
+        with _yfinance_lock:
+            raw = yf.download(
+                tickers=symbols,
+                start=start,
+                end=end + timedelta(days=1),
+                interval="1d",
+                progress=False,
+                group_by="ticker",
+                auto_adjust=True,
+            )
 
         if raw.empty:
             raise ValueError(f"yfinance returned no data for {symbols}")
