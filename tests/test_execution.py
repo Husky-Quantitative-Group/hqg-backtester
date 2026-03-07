@@ -168,15 +168,15 @@ class TestCorrectness:
     async def test_runtime_division_by_zero(self):
         """Strategy with division by zero should fail gracefully at runtime."""
         runtime_error_strategy = '''
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, Cadence, BarSize, Signal, TargetWeights
 
 class DivZeroStrategy(Strategy):
-    def universe(self):
-        return ["AAPL"]
+    universe = ["AAPL"]
+    cadence = Cadence(bar_size=BarSize.DAILY)
 
-    def on_data(self, data, portfolio):
+    def on_data(self, data, portfolio) -> Signal:
         x = 1 / 0  # Runtime error
-        return {"AAPL": 1.0}
+        return TargetWeights({"AAPL": 1.0})
 '''
         handler = BacktestHandler()
         request = make_request(
@@ -194,14 +194,14 @@ class DivZeroStrategy(Strategy):
     async def test_runtime_invalid_symbol(self):
         """Strategy requesting invalid symbol should handle gracefully."""
         invalid_symbol_strategy = '''
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, Cadence, BarSize, Signal, TargetWeights
 
 class InvalidSymbolStrategy(Strategy):
-    def universe(self):
-        return ["NOTAREALSYMBOL12345"]
+    universe = ["NOTAREALSYMBOL12345"]
+    cadence = Cadence(bar_size=BarSize.DAILY)
 
-    def on_data(self, data, portfolio):
-        return {"NOTAREALSYMBOL12345": 1.0}
+    def on_data(self, data, portfolio) -> Signal:
+        return TargetWeights({"NOTAREALSYMBOL12345": 1.0})
 '''
         handler = BacktestHandler()
         request = make_request(
@@ -216,14 +216,14 @@ class InvalidSymbolStrategy(Strategy):
     async def test_runtime_invalid_weight(self):
         """Strategy returning weights > 1.0 should fail at execution."""
         overweight_strategy = '''
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, Cadence, BarSize, Signal, TargetWeights
 
 class OverweightStrategy(Strategy):
-    def universe(self):
-        return ["AAPL", "MSFT"]
+    universe = ["AAPL", "MSFT"]
+    cadence = Cadence(bar_size=BarSize.DAILY)
 
-    def on_data(self, data, portfolio):
-        return {"AAPL": 0.8, "MSFT": 0.8}  # Sum > 1.0
+    def on_data(self, data, portfolio) -> Signal:
+        return TargetWeights({"AAPL": 0.8, "MSFT": 0.8})  # Sum > 1.0
 '''
         handler = BacktestHandler()
         request = make_request(
@@ -311,7 +311,6 @@ class TestIntegration:
     """
 
     @pytest.mark.asyncio
-    @classmethod
     async def test_mean_variance_strategy(self):
         """Mean-variance optimization strategy (strategy_20)."""
         strategy_code = (_STRATS_DIR / "strategy_20_mean_variance_opt_monthly.py").read_text()
@@ -331,7 +330,6 @@ class TestIntegration:
         assert len(result.candles) > 0
 
     @pytest.mark.asyncio
-    @classmethod
     async def test_sma_crossover_strategy(self):
         """SMA crossover strategy (strategy_02)."""
         strategy_code = (_STRATS_DIR / "strategy_02_sma_crossover_qqq_weekly.py").read_text()
