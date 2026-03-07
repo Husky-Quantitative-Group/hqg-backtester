@@ -35,6 +35,7 @@ class MyStrategy(Strategy):
     }
 
 
+@pytest.mark.unit
 def test_health_check():
     """Test health check endpoint"""
     response = client.get("/health")
@@ -42,19 +43,17 @@ def test_health_check():
     assert response.json()["status"] == "healthy"
 
 
+@pytest.mark.unit
 def test_backtest_endpoint_success(valid_backtest_request):
-    """Test successful backtest execution"""
+    """Test successful backtest submission returns 202 with a job_id"""
     response = client.post("/api/v1/backtest", json=valid_backtest_request)
-    assert response.status_code == 200
-    
+    assert response.status_code == 202
+
     data = response.json()
-    assert "trades" in data
-    assert "metrics" in data
-    assert "final_value" in data
-    assert isinstance(data["trades"], list)
-    assert isinstance(data["metrics"], dict)
+    assert "job_id" in data
 
 
+@pytest.mark.unit
 def test_backtest_invalid_dates():
     """Test backtest with end_date before start_date"""
     request = {
@@ -67,6 +66,7 @@ def test_backtest_invalid_dates():
     assert response.status_code == 422  # Validation error
 
 
+@pytest.mark.unit
 def test_backtest_invalid_capital():
     """Test backtest with invalid initial capital"""
     request = {
@@ -79,12 +79,14 @@ def test_backtest_invalid_capital():
     assert response.status_code == 422
 
 
+@pytest.mark.unit
 def test_backtest_missing_fields():
     """Test backtest with missing required fields"""
     response = client.post("/api/v1/backtest", json={})
     assert response.status_code == 422
 
 
+@pytest.mark.unit
 def test_backtest_code_too_large():
     """Test backtest with code exceeding size limit"""
     large_code = "x = 1\n" * 200000  # ~1000KB
