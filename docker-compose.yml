@@ -26,6 +26,8 @@ services:
     container_name: hqg-backtester
     expose:
       - "8005"
+    ports:
+      - "127.0.0.1:8005:8005"
     networks:
       - hqg_network
     volumes:
