@@ -26,6 +26,10 @@ services:
     container_name: hqg-backtester
     expose:
       - "8005"
+    ports:
+      - "127.0.0.1:8005:8005"
+    networks:
+      - hqg_network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock 
     restart: unless-stopped
@@ -37,6 +41,5 @@ services:
       start_period: 5s
 
 networks:
-  internal:
   hqg_network:
     external: true
