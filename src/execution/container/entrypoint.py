@@ -11,7 +11,6 @@ from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
 from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
-from src.utils.strategy_loader import StrategyLoader
 
 PROFILE = os.environ.get("HQG_PROFILE", "0") == "1"
 
