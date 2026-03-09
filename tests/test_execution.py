@@ -48,11 +48,15 @@ def make_request(
     )
 
 
-@pytest.mark.integration
 class TestCorrectness:
     """
     Verify components enforce their expected constraints.
+
+    Static analysis tests are marked `unit` (no infrastructure required).
+    Execution tests are marked `integration` (require Docker/container).
     """
+
+    @pytest.mark.unit
     def test_static_analyzer_requires_strategy_class(self):
         request = make_request(TestStrategies.MALICIOUS_NO_STRATEGY)
         StaticAnalyzer.analyze(request)
@@ -60,6 +64,7 @@ class TestCorrectness:
         assert not request.errors.is_empty()
         assert any("Strategy" in e for e in request.errors.errors)
 
+    @pytest.mark.unit
     def test_static_analyzer_validates_allowed_nodes(self):
         request = make_request(TestStrategies.VALID_BUYHOLD)
         result = StaticAnalyzer.analyze(request)
@@ -67,7 +72,8 @@ class TestCorrectness:
         assert (
             result.errors.is_empty()
         ), f"Valid strategy failed: {result.errors.errors}"
-        
+
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_buyhold_strategy_executes(self):
         handler = BacktestHandler()
@@ -85,6 +91,7 @@ class TestCorrectness:
         assert result.parameters.starting_equity == 10000.0
         assert len(result.candles) > 0, "Should have equity curve data"
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_sma_strategy_executes(self):
         handler = BacktestHandler()
@@ -101,6 +108,7 @@ class TestCorrectness:
         assert result.metrics.total_orders >= 0, "SMA strategy may generate trades"
         assert result.parameters.starting_equity == 50000.0
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_multiasset_strategy_executes(self):
         handler = BacktestHandler()
@@ -117,6 +125,7 @@ class TestCorrectness:
         assert result.equity_stats is not None
         assert len(result.orders) > 0, "Multi-asset strategy should generate orders"
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_commission_affects_results(self):
         handler = BacktestHandler()
@@ -141,6 +150,7 @@ class TestCorrectness:
         # Higher commission should result in lower or equal final equity
         assert result_high.equity_stats.fees >= result_zero.equity_stats.fees
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_equity_candles_have_ohlc(self):
         handler = BacktestHandler()
@@ -164,19 +174,20 @@ class TestCorrectness:
         assert candle.low <= candle.open <= candle.high
         assert candle.low <= candle.close <= candle.high
         
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_runtime_division_by_zero(self):
         """Strategy with division by zero should fail gracefully at runtime."""
         runtime_error_strategy = '''
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, Cadence, BarSize, Signal, TargetWeights
 
 class DivZeroStrategy(Strategy):
-    def universe(self):
-        return ["AAPL"]
+    universe = ["AAPL"]
+    cadence = Cadence(bar_size=BarSize.DAILY)
 
-    def on_data(self, data, portfolio):
+    def on_data(self, data, portfolio) -> Signal:
         x = 1 / 0  # Runtime error
-        return {"AAPL": 1.0}
+        return TargetWeights({"AAPL": 1.0})
 '''
         handler = BacktestHandler()
         request = make_request(
@@ -190,18 +201,19 @@ class DivZeroStrategy(Strategy):
 
         assert "division" in str(exc_info.value).lower() or "zero" in str(exc_info.value).lower()
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_runtime_invalid_symbol(self):
         """Strategy requesting invalid symbol should handle gracefully."""
         invalid_symbol_strategy = '''
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, Cadence, BarSize, Signal, TargetWeights
 
 class InvalidSymbolStrategy(Strategy):
-    def universe(self):
-        return ["NOTAREALSYMBOL12345"]
+    universe = ["NOTAREALSYMBOL12345"]
+    cadence = Cadence(bar_size=BarSize.DAILY)
 
-    def on_data(self, data, portfolio):
-        return {"NOTAREALSYMBOL12345": 1.0}
+    def on_data(self, data, portfolio) -> Signal:
+        return TargetWeights({"NOTAREALSYMBOL12345": 1.0})
 '''
         handler = BacktestHandler()
         request = make_request(
@@ -212,18 +224,19 @@ class InvalidSymbolStrategy(Strategy):
         with pytest.raises(Exception):
             await handler.run_backtest(request)
     
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_runtime_invalid_weight(self):
         """Strategy returning weights > 1.0 should fail at execution."""
         overweight_strategy = '''
-from hqg_algorithms import Strategy
+from hqg_algorithms import Strategy, Cadence, BarSize, Signal, TargetWeights
 
 class OverweightStrategy(Strategy):
-    def universe(self):
-        return ["AAPL", "MSFT"]
+    universe = ["AAPL", "MSFT"]
+    cadence = Cadence(bar_size=BarSize.DAILY)
 
-    def on_data(self, data, portfolio):
-        return {"AAPL": 0.8, "MSFT": 0.8}  # Sum > 1.0
+    def on_data(self, data, portfolio) -> Signal:
+        return TargetWeights({"AAPL": 0.8, "MSFT": 0.8})  # Sum > 1.0
 '''
         handler = BacktestHandler()
         request = make_request(
@@ -237,6 +250,7 @@ class OverweightStrategy(Strategy):
 
         assert "weight" in str(exc_info.value).lower() or "1.0" in str(exc_info.value)
 
+@pytest.mark.unit
 class TestSecurity:
     """
     Verify malicious requests are rejected at the appropriate pipeline stage.
@@ -311,7 +325,6 @@ class TestIntegration:
     """
 
     @pytest.mark.asyncio
-    @classmethod
     async def test_mean_variance_strategy(self):
         """Mean-variance optimization strategy (strategy_20)."""
         strategy_code = (_STRATS_DIR / "strategy_20_mean_variance_opt_monthly.py").read_text()
@@ -331,7 +344,6 @@ class TestIntegration:
         assert len(result.candles) > 0
 
     @pytest.mark.asyncio
-    @classmethod
     async def test_sma_crossover_strategy(self):
         """SMA crossover strategy (strategy_02)."""
         strategy_code = (_STRATS_DIR / "strategy_02_sma_crossover_qqq_weekly.py").read_text()
@@ -351,6 +363,7 @@ class TestIntegration:
         assert len(result.candles) > 0
 
 @pytest.mark.integration
+@pytest.mark.load
 class TestLoad:
     """
     Simulate N concurrent users submitting backtest requests simultaneously.
@@ -414,6 +427,7 @@ class TestLoad:
 
         print(f"Load Test: {self.N} requests completed in {_elapsed:.2f}s")
 @pytest.mark.integration
+@pytest.mark.stress
 class TestStress:
     """
     Simulate N concurrent users submitting backtest requests simultaneously.
