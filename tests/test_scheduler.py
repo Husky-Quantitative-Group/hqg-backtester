@@ -64,6 +64,7 @@ async def _poll_until_done(client: httpx.AsyncClient, job_id: str, *, timeout: f
             return data
         await asyncio.sleep(3)
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_polling():
     from src.scheduler.scheduler import scheduler
@@ -122,6 +123,8 @@ async def test_polling():
         await asyncio.gather(scheduler_task, return_exceptions=True)
 
         
+@pytest.mark.integration
+@pytest.mark.load
 @pytest.mark.asyncio
 async def test_load():
     """Load test: 10 concurrent valid jobs"""
@@ -158,6 +161,8 @@ async def test_load():
             assert kv_store._store == {}, "kv_store not empty after load test"
 
 
+@pytest.mark.integration
+@pytest.mark.stress
 @pytest.mark.asyncio
 async def test_stress():
     """Stress test: 20 concurrent jobs"""

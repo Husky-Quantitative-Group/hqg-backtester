@@ -1,5 +1,5 @@
 """
-Strategy 07: Sector Rotation Momentum – Top 3 of 9 sector ETFs
+Strategy 07: Sector Rotation Momentum - Top 3 of 9 sector ETFs
 Period: 2014-01-01 to 2024-12-31
 Cadence: Monthly
 Logic: Track 3-month momentum across 9 SPDR sector ETFs.
@@ -7,7 +7,7 @@ Logic: Track 3-month momentum across 9 SPDR sector ETFs.
        If fewer than 3 have positive momentum, fill remainder with BND.
 No shorting.
 """
-from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize
+from hqg_algorithms import Strategy, Cadence, Slice, PortfolioView, BarSize, Signal, TargetWeights, Hold
 from collections import deque
 
 START_DATE = "2014-01-01"
@@ -23,13 +23,10 @@ class SectorRotationMomentumMonthly(Strategy):
             t: deque(maxlen=LOOKBACK + 1) for t in SECTORS
         }
 
-    def universe(self) -> list[str]:
-        return SECTORS + ["BND"]
+    universe = ["XLK", "XLV", "XLF", "XLE", "XLI", "XLY", "XLP", "XLU", "XLB", "BND"]
+    cadence = Cadence(bar_size=BarSize.MONTHLY)
 
-    def cadence(self) -> Cadence:
-        return Cadence(bar_size=BarSize.MONTHLY)
-
-    def on_data(self, data: Slice, portfolio: PortfolioView) -> dict[str, float] | None:
+    def on_data(self, data: Slice, portfolio: PortfolioView) -> Signal:
         # Collect prices
         for t in SECTORS:
             p = data.close(t)
@@ -42,7 +39,7 @@ class SectorRotationMomentumMonthly(Strategy):
         ]
 
         if not ready:
-            return {"BND": 1.0}
+            return TargetWeights({"BND": 1.0})
 
         # Compute momentum
         mom = {}
@@ -55,7 +52,7 @@ class SectorRotationMomentumMonthly(Strategy):
         top3 = [(t, m) for t, m in ranked[:3] if m > 0]
 
         if not top3:
-            return {"BND": 1.0}
+            return TargetWeights({"BND": 1.0})
 
         w = 1.0 / 3.0
         weights: dict[str, float] = {}
@@ -67,4 +64,5 @@ class SectorRotationMomentumMonthly(Strategy):
         if remaining > 0.001:
             weights["BND"] = remaining
 
-        return weights
+        return TargetWeights(weights)
+

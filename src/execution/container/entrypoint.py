@@ -5,7 +5,7 @@ import pstats
 import io
 import os
 import pandas as pd
-from hqg_algorithms import BarSize
+from hqg_algorithms import Strategy, BarSize, Slice, Bar
 from typing import Dict, Any
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
@@ -14,7 +14,6 @@ from src.services.backtester import Backtester
 from src.utils.strategy_loader import StrategyLoader
 
 PROFILE = os.environ.get("HQG_PROFILE", "0") == "1"
-
 
 def main():
     try:
@@ -86,19 +85,35 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
         data = json_to_dataframe(payload.market_data)
 
-        strategy_class = StrategyLoader.load_code(payload.strategy_code)
+        # Pre-build timestamp:Slice dict (avoid per-step MultiIndex slicing in loop)
+        slices, timestamps = precompute_slices(data)
+
+        # TODO: refactor w/ StrategyLoader (no write)
+        # Load strategy class
+        strategy_namespace = {}
+        exec(payload.strategy_code, strategy_namespace)
+
+        # Find Strategy subclass
+        strategy_class = None
+        for _, obj in strategy_namespace.items():
+            if isinstance(obj, type) and issubclass(obj, Strategy) and obj is not Strategy:
+                strategy_class = obj
+                break
+
+        if strategy_class is None:
+            raise ValueError("No Strategy subclass found in strategy_code")
         strategy = strategy_class()
 
         # Initialize portfolio
-        symbols = strategy.universe()
+        symbols = strategy.universe
         portfolio = Portfolio(initial_cash=payload.initial_capital, symbols=symbols)
 
         # Run backtest loop
-        cadence = strategy.cadence()
-        trades, ohlc = backtester._run_loop(strategy, data, portfolio, cadence)
+        trades, ohlc = backtester._run_loop(strategy, slices, timestamps, portfolio)
 
         # Get final prices
-        final_prices = backtester._get_final_prices(data, symbols)
+        final_slice = slices[timestamps[-1]]
+        final_prices = backtester._get_close(final_slice, symbols)
 
         return {
             "trades": [t.model_dump() for t in trades],
@@ -108,7 +123,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "final_cash": portfolio.cash,
             "final_positions": portfolio.positions.copy(),
             "errors": errors,
-            "bar_size": cadence.bar_size
+            "bar_size": strategy.cadence.bar_size
         }
 
     except Exception as e:
@@ -158,6 +173,34 @@ def json_to_dataframe(market_data: Dict[str, Any]) -> pd.DataFrame:
     formatted.columns = columns
 
     return formatted
+
+def precompute_slices(data: pd.DataFrame) -> tuple[Dict, list]:
+    """
+    Build a dictionary of timestamps: slices for backtest loop
+    """
+    timestamps = data.index.tolist()
+    columns = data.columns.tolist()  # [(symbol, field), ...]; e.g. [('AAPL', 'close'), ...]
+    values = data.values  # shape: (n_timestamps, n_columns)
+
+    symbols = list(dict.fromkeys(s for s, _ in columns))
+
+    # Build column index lookup: {(symbol, field): col_index}
+    col_index = {(s, f): j for j, (s, f) in enumerate(columns)}
+
+    slices = {}
+    for i, ts in enumerate(timestamps):
+        bars = {}
+        for s in symbols:
+            bars[s] = Bar(
+                open=float(values[i, col_index[(s, "open")]]),
+                high=float(values[i, col_index[(s, "high")]]),
+                low=float(values[i, col_index[(s, "low")]]),
+                close=float(values[i, col_index[(s, "close")]]),
+                volume=float(values[i, col_index[(s, "volume")]]) if (s, "volume") in col_index else None,
+            )
+        slices[ts] = Slice(bars)
+
+    return slices, timestamps
 
 
 if __name__ == "__main__":

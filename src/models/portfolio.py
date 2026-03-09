@@ -1,6 +1,5 @@
 from typing import Dict, List
 from datetime import datetime
-from uuid import uuid4
 from .response import OrderType, Trade
 from hqg_algorithms import Slice
 
@@ -26,10 +25,9 @@ class Portfolio:
         )
         return self.cash + positions_value
 
-    def get_weights(self, prices: Dict[str, float]) -> Dict[str, float]:
+    def get_weights(self, prices: Dict[str, float], tv: float) -> Dict[str, float]:
         """ returns dict of ticker: weight. Sum will be <= 1, as we will not return Cash """
         wts = {}
-        tv = self.get_total_value(prices)
         for tick, quantity in self.positions.items():
             if tick not in prices:
                 continue
@@ -89,12 +87,13 @@ class Portfolio:
             
             # execute buy or sell 
             # (assume x1 margin, so cash can be momentarily negative as we rebalance)
+            trade_id = f"{timestamp}-{symbol}"
             if shares_to_trade > 0:
                 self.positions[symbol] += shares_to_trade
                 self.cash -= trade_value
                 
                 trades.append(Trade(
-                    id=str(uuid4()),
+                    id=trade_id,
                     timestamp=timestamp,
                     symbol=symbol,
                     action=OrderType.BUY,
@@ -110,7 +109,7 @@ class Portfolio:
                 self.cash += trade_value
                     
                 trades.append(Trade(
-                    id=str(uuid4()),
+                    id=trade_id,
                     timestamp=timestamp,
                     symbol=symbol,
                     action=OrderType.SELL,
@@ -135,25 +134,20 @@ class Portfolio:
         portfolio_high = self.cash
         portfolio_low = self.cash
         portfolio_close = self.cash
-        
+
         for symbol, shares in self.positions.items():
             if shares <= 0:
                 continue
-                
-            open_price = slice_obj[symbol].get("open")
-            high_price = slice_obj[symbol].get("high")
-            low_price = slice_obj[symbol].get("low")
-            close_price = slice_obj[symbol].get("close")
-            
-            if open_price is not None:
-                portfolio_open += shares * open_price
-            if high_price is not None:
-                portfolio_high += shares * high_price
-            if low_price is not None:
-                portfolio_low += shares * low_price
-            if close_price is not None:
-                portfolio_close += shares * close_price
-        
+
+            bar = slice_obj.bar(symbol)
+            if bar is None:
+                continue
+
+            portfolio_open += shares * bar.open
+            portfolio_high += shares * bar.high
+            portfolio_low += shares * bar.low
+            portfolio_close += shares * bar.close
+
         return {
             'timestamp': timestamp,
             'open': portfolio_open,

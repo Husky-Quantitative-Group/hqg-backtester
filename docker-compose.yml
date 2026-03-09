@@ -3,6 +3,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.sandbox
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
+        http_proxy: ${HTTP_PROXY}
+        https_proxy: ${HTTPS_PROXY}
+        no_proxy: ${NO_PROXY}
     image: hqg-backtester-sandbox
   backtester-api:
     build:
@@ -24,10 +31,9 @@ services:
       - https_proxy=${HTTPS_PROXY}
       - no_proxy=${NO_PROXY}
     container_name: hqg-backtester
-    ports:
-      - "8005:8005"
+    expose:
+      - "8005"
     volumes:
-      - ./src/strategy_temp:/app/src/strategy_temp    # TODO: add CRON job or equiv to wipe old files (save for debugging / checking for malicious attempts)
       - /var/run/docker.sock:/var/run/docker.sock 
     restart: unless-stopped
     healthcheck:
@@ -36,3 +42,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    networks:
+      - hqg_network
+
+networks:
+  internal:
+  hqg_network:
+    external: true
