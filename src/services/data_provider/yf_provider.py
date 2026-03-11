@@ -292,6 +292,13 @@ class YFDataProvider(BaseDataProvider):
         result = pd.DataFrame(frames)
         result.columns = pd.MultiIndex.from_tuples(result.columns)
 
+        # Mixed calendars (e.g., BTC-USD trades on holidays/weekends while equities do not)
+        # can create rows with missing closes for a subset of symbols. Those rows break
+        # portfolio valuation downstream, so keep only bars where all symbol closes exist.
+        close_cols = [col for col in result.columns if col[1] == "close"]
+        if close_cols:
+            result = result.dropna(subset=close_cols, how="any")
+
         logger.info(
             f"Returning {len(result)} bars for {symbols} "
             f"({start_date.date()} to {end_date.date()}, bar_size={bar_size})"
