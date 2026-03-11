@@ -12,6 +12,7 @@ ALLOWED_MODULES: set[str] = {
     "statistics",
     # ML, data engineering
     "scikit-learn",
+    "sklearn",
     # Optimization
     "cvxpy",
     "cma",
@@ -26,6 +27,8 @@ ALLOWED_MODULES: set[str] = {
     "collections",
     "itertools",
     "functools",
+    "base64",
+    "zlib",
     "dataclasses",
     "enum",
     "decimal",
