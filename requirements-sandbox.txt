@@ -4,3 +4,5 @@ pydantic-settings
 hqg-algorithms>=1.0.0
 cvxpy
 numpy
+scikit-learn
+cma

@@ -10,8 +10,12 @@ ALLOWED_MODULES: set[str] = {
     "pandas",
     "math",
     "statistics",
+    # ML, data engineering
+    "scikit-learn",
+    "sklearn",
     # Optimization
     "cvxpy",
+    "cma",
     # Technical analysis
     "talib",
     # HQG framework
@@ -23,6 +27,8 @@ ALLOWED_MODULES: set[str] = {
     "collections",
     "itertools",
     "functools",
+    "base64",
+    "zlib",
     "dataclasses",
     "enum",
     "decimal",
