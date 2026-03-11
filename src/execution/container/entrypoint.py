@@ -4,6 +4,7 @@ import cProfile
 import pstats
 import io
 import os
+from datetime import datetime
 import pandas as pd
 from hqg_algorithms import Strategy, BarSize, Slice, Bar
 from typing import Dict, Any
@@ -197,9 +198,36 @@ def precompute_slices(data: pd.DataFrame) -> tuple[Dict, list]:
                 close=float(values[i, col_index[(s, "close")]]),
                 volume=float(values[i, col_index[(s, "volume")]]) if (s, "volume") in col_index else None,
             )
-        slices[ts] = Slice(bars)
+        slice_obj = Slice(bars)
+        _attach_slice_timestamp_fields(slice_obj, ts)
+        slices[ts] = slice_obj
 
     return slices, timestamps
+
+
+def _attach_slice_timestamp_fields(slice_obj: Slice, ts: Any) -> None:
+    """
+    Provide a stable timestamp API on Slice objects across engine versions.
+    Strategy code can safely use any of: data.time, data.timestamp, data.date.
+    """
+    dt = _to_datetime(ts)
+    d = dt.date()
+
+    for attr, value in (("time", dt), ("timestamp", dt), ("date", d)):
+        try:
+            setattr(slice_obj, attr, value)
+        except Exception:
+            # Some Slice implementations may block dynamic attributes.
+            # In those cases, strategies should still use fallback access.
+            pass
+
+
+def _to_datetime(ts: Any) -> datetime:
+    if isinstance(ts, datetime):
+        return ts
+    if hasattr(ts, "to_pydatetime"):
+        return ts.to_pydatetime()
+    return pd.Timestamp(ts).to_pydatetime()
 
 
 if __name__ == "__main__":
