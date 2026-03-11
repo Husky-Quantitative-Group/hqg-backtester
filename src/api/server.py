@@ -4,10 +4,15 @@ from contextlib import asynccontextmanager
 
 from ..config.logging_config import setup_logging
 from ..config.settings import settings
+from ..config.log_handler import LogHandler
+from ..scheduler.job_store import job_store
 
 # Configure logging before importing application modules that use it
 setup_logging(settings.LOG_DIR)
-logger = logging.getLogger(__name__)
+
+_log_handler = LogHandler(job_store)
+_log_handler.setFormatter(logging.Formatter("%(levelname)s - %(name)s - %(message)s"))
+logging.getLogger().addHandler(_log_handler)
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402

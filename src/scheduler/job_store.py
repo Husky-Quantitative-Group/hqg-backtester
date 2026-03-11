@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -20,6 +21,7 @@ class JobStore:
     def __init__(self):
         self._store: dict[str, JobRecord] = {}
         self._lock = asyncio.Lock()
+        self._log_lock = threading.Lock()
 
     async def create(self, job_id: str) -> JobRecord:
         record = JobRecord(
@@ -57,6 +59,12 @@ class JobStore:
     async def set_cancelled(self, job_id: str) -> None:
         async with self._lock:
             self._store.pop(job_id, None)
+
+    def append_log(self, job_id: str, message: str) -> None:
+        with self._log_lock:
+            record = self._store.get(job_id)
+            if record:
+                record.logs.append(message)
 
     async def get(self, job_id: str) -> Optional[JobRecord]:
         async with self._lock:

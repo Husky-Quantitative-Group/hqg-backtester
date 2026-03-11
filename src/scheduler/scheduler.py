@@ -18,6 +18,7 @@ from ..services.data_provider.base_provider import BaseDataProvider
 from .kv_store import kv_store
 from .job_store import job_store
 from .queue import job_queue
+from ..config.log_handler import current_job_id
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,8 @@ class Scheduler:
             asyncio.create_task(self._execute_job(job_id))
 
     async def _execute_job(self, job_id: str) -> None:
+        current_job_id.set(job_id)
+
         request = await kv_store.get(job_id)
         if request is None:
             # Cancelled between dequeue and task start

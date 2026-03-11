@@ -14,7 +14,6 @@ class JobStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 # TODO: More robust error handling; use our ValidationException & ExecutionException models
-# TODO: Implement logging & printing
 class JobRecord(BaseModel):
     job_id: str
     status: JobStatus
@@ -23,3 +22,4 @@ class JobRecord(BaseModel):
     completed_at: Optional[datetime] = None
     result: Optional[BacktestResponse] = None
     error: Optional[str] = None
+    logs: list[str] = []
