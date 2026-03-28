@@ -51,10 +51,13 @@ class Scheduler:
 
         try:
             raw_result = await self._orchestrator.run(request)
+            for msg in raw_result.strategy_logs:
+                job_store.append_log(job_id, msg)
             response = self._build_response(job_id, request, raw_result, self._orchestrator.data_provider)
             await job_store.set_completed(job_id, response)
             logger.info(f"Job [{job_id}] completed. Sharpe: {response.metrics.sharpe:.2f}")
         except Exception as e:
+            job_store.append_log(job_id, str(e))
             await job_store.set_failed(job_id, str(e))
             logger.error(f"Job [{job_id}] failed: {e}")
         finally:
