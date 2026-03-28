@@ -25,4 +25,3 @@ class RawExecutionResult(BaseModel):
     execution_time: Optional[float] = Field(default=None, description="Execution time in seconds")
     errors: BacktestRequestError = Field(default_factory=BacktestRequestError, description="Any errors encountered during execution")
     bar_size: BarSize = Field(default=None, description="Strategy BarSize")
-    strategy_logs: List[str] = Field(default_factory=list, description="Messages emitted via self.log() during strategy execution")
