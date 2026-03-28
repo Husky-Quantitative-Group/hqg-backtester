@@ -1,9 +1,8 @@
 # src.utils.metrics
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from typing import List, Dict, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
 from hqg_algorithms import BarSize
 from ..models.response import Trade, PerformanceMetrics
 from ..services.data_provider.base_provider import BaseDataProvider
@@ -81,7 +80,7 @@ def calculate_metrics(
     return PerformanceMetrics(
         total_return=total_return,
         annualized_return=annualized_return,
-        sharpe_ratio=sharpe_ratio,
+        sharpe=sharpe_ratio,
         max_drawdown=max_drawdown,
         win_rate=win_rate,
         total_orders=len(trades),

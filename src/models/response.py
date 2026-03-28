@@ -1,59 +1,52 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import List
 from enum import Enum
 
 
 class OrderType(str, Enum):
-    SELL = "Sell"  # Capitalized to match frontend
-    BUY = "Buy"    # Capitalized to match frontend
+    SELL = "Sell"
+    BUY = "Buy"
 
 
 class Trade(BaseModel):
     """Individual trade/order"""
     id: str
     timestamp: datetime
-    ticker: str = Field(..., alias="symbol")
-    type: OrderType = Field(..., alias="action")
+    ticker: str
+    type: OrderType
     price: float
-    amount: float = Field(..., alias="shares")
-
-    class Config:
-        populate_by_name = True
+    shares: float
 
 
 class PerformanceMetrics(BaseModel):
     """Performance metrics for the backtest"""
-    # Core ratios
-    sharpe: float = Field(..., alias="sharpe_ratio")
-    sortino: float
-    alpha: float
-    beta: float
-    psr: float
-
-    # Returns and drawdown
-    total_return: float
-    annualized_return: float
-    max_drawdown: float
-
-    # Trade statistics
-    win_rate: float
-    total_orders: int
-    avg_win: float
-    avg_loss: float
-
-    class Config:
-        populate_by_name = True
-
-
-class EquityStats(BaseModel):
-    """Summary statistics for equity curve"""
-    equity: float = Field(..., description="Final equity value")
+    # equity stats
+    final_portfolio_value: float = Field(..., description="Final equity value")
     fees: float = Field(..., description="Total fees paid")
     net_profit: float = Field(..., description="Net profit (final - initial)")
-    return_pct: float = Field(..., description="Return as percentage")
     volume: float = Field(..., description="Total trading volume")
 
+    # ratios
+    sharpe: float = Field(..., description="Risk-adjusted return per unit of volatility")
+    sortino: float = Field(..., description="Risk-adjusted return per unit of downside volatility")
+    calmar: float = Field(..., description="Annualized return divided by max drawdown")
+    psr: float = Field(..., description="Probability that the estimated Sharpe ratio exceeds one")
+
+    # return
+    total_pct_return: float = Field(..., description="Total return as a percentage of starting equity")
+    annualized_return: float = Field(..., description="Total return scaled to a one-year period")
+
+    # risk
+    ann_vol: float = Field(..., description="Annualized standard deviation of returns")
+    max_drawdown: float = Field(..., description="Largest peak-to-trough decline as a percentage")
+    max_drawdown_duration: int = Field(..., description="Longest drawdown period in trading days")
+    var_95: float = Field(..., description="Maximum expected loss at 95% confidence over one day")
+    cvar_95: float = Field(..., description="Expected loss in the worst 5% of scenarios")
+    prob_overfit: float = Field(..., description="Estimated probability that performance is due to overfitting")
+
+    alpha: float = Field(..., description="Excess return relative to the benchmark (S&P)")
+    beta: float = Field(..., description="Sensitivity of returns to benchmark (S&P) movements")
+    total_orders: int = Field(..., description="Total number of trades executed")
 
 class EquityCandle(BaseModel):
     """OHLC candle for equity curve"""
@@ -65,7 +58,7 @@ class EquityCandle(BaseModel):
 
 
 class BacktestParameters(BaseModel):
-    """Parameters used for the backtest run"""
+    """User-defined parameters used for the backtest run"""
     name: str
     starting_equity: float
     start_date: datetime
@@ -73,13 +66,9 @@ class BacktestParameters(BaseModel):
 
 
 class BacktestResponse(BaseModel):
-    """
-    API response format - matches frontend TypeScript structure.
-    This is what the React component expects to receive.
-    """
+    """ Backtest response format """
     job_id: str
     parameters: BacktestParameters
     metrics: PerformanceMetrics
-    equity_stats: EquityStats
-    candles: List[EquityCandle]
-    orders: List[Trade]
+    candles: list[EquityCandle]
+    orders: list[Trade]
