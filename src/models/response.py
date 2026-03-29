@@ -40,7 +40,7 @@ class PerformanceMetrics(BaseModel):
     # risk
     ann_vol: float = Field(..., description="Annualized standard deviation of returns")
     max_drawdown: float = Field(..., description="Largest peak-to-trough decline as a percentage")
-    max_drawdown_duration: int = Field(..., description="Longest drawdown period in trading days")
+    max_drawdown_duration: int = Field(..., description="Longest period from peak to recovery in bars")
     var_95: float = Field(..., description="Maximum expected loss at 95% confidence over one day")
     cvar_95: float = Field(..., description="Expected loss in the worst 5% of scenarios")
     # TODO: prob_overfit: float = Field(..., description="Estimated probability that performance is due to overfitting")
