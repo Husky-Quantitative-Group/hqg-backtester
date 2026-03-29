@@ -60,12 +60,12 @@ def calculate_metrics(
         bar_size: BarSize = BarSize.DAILY,
     ) -> PerformanceMetrics:
 
+    equity_curve = pd.Series(equity_curve_data)
     periods_per_year = _get_periods(bar_size)
   
     sp500, rf_annual = _get_benchmark_and_rf(data_provider, equity_curve.index[0], equity_curve.index[-1], bar_size)
     rf_per_period = _per_period_rf(rf_annual, periods_per_year)
 
-    equity_curve = pd.Series(equity_curve_data)
     returns = equity_curve.pct_change().dropna()
 
     # total return
@@ -84,8 +84,8 @@ def calculate_metrics(
     # alpha and beta (S&P 500 benchmark)
     alpha, beta = _calculate_alpha_beta(returns, periods_per_year, rf_annual, sp500)
 
-    var_95=np.percentile(returns, 5) * np.sqrt(periods_per_year)
-    cvar_95=returns[returns <= np.percentile(returns, 5)].mean() * np.sqrt(periods_per_year)
+    var_95 = np.percentile(returns, 5)
+    cvar_95 = returns[returns <= np.percentile(returns, 5)].mean()
 
     return PerformanceMetrics(
         final_portfolio_value=final_value,
@@ -203,9 +203,9 @@ def _calculate_psr(
     sr_hat = (mu / sigma) * np.sqrt(periods_per_year)
 
     skew = r.skew()
-    kurt = r.kurtosis() + 3  # pandas returns excess kurtosis; convert to raw
+    kurt = r.kurtosis()     # pandas returns excess kurtosis
 
-    # Standard error of Sharpe ratio (Lo 2002, adjusted for non-normality)
+    # Standard error of Sharpe ratio (Lo 2002)
     sr_std = np.sqrt(
         (1 - skew * sr_hat + ((kurt - 1) / 4.0) * sr_hat ** 2) / (T - 1)
     )
