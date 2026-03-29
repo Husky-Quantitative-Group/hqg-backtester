@@ -20,16 +20,36 @@ _PERIODS_PER_YEAR = {
     BarSize.QUARTERLY: 4,
 }
 
-# TODO: make this dynamic (avg 10yr T-bill across test timeline)
-_ANNUAL_RISK_FREE_RATE = 0.035
-
 
 def _get_periods(bar_size: BarSize) -> int:
     return _PERIODS_PER_YEAR.get(bar_size, 252)
 
-def _per_period_rf(periods_per_year: int) -> float:
+def _per_period_rf(rf_annual: float, periods_per_year: int) -> float:
     """Risk-free rate per bar period."""
-    return _ANNUAL_RISK_FREE_RATE / periods_per_year
+    return rf_annual / periods_per_year
+
+def _get_benchmark_and_rf(data_provider: BaseDataProvider, start_date: datetime, end_date: datetime, bar_size: BarSize) -> Tuple[pd.Series, float]:
+    """
+        Fetch benchmark (S&P 500) and risk-free rate series from data provider.
+        Single call to data provider (worse case only single call to yf).
+    """
+    try:
+        df = data_provider.get_data(
+            symbols=['^GSPC', '^IRX'],  # S&P 500 and 3-month T-bill as risk-free proxy
+            start_date=start_date,
+            end_date=end_date,
+            bar_size=bar_size,         # same cadence as strategy
+        )
+        sp500_df = df[('^GSPC', 'close')]
+        rf_df = df[('^IRX', 'close')]
+
+        rf_annual = rf_df.mean() / 100.0  # convert to decimal, IRX is in %
+
+        return sp500_df, rf_annual
+    
+    except Exception as e:
+        logger.warning(f"Benchmark/RF fetch failed. Skipping alpha/beta. Default rf = 3.5%. Error: {e}")
+        return pd.Series(), 0.035
 
 
 def calculate_metrics(
@@ -41,6 +61,9 @@ def calculate_metrics(
     ) -> PerformanceMetrics:
 
     periods_per_year = _get_periods(bar_size)
+  
+    sp500, rf_annual = _get_benchmark_and_rf(data_provider, equity_curve.index[0], equity_curve.index[-1], bar_size)
+    rf_per_period = _per_period_rf(rf_annual, periods_per_year)
 
     equity_curve = pd.Series(equity_curve_data)
     returns = equity_curve.pct_change().dropna()
@@ -51,26 +74,18 @@ def calculate_metrics(
 
     # annualized return
     annualized_return = _calculate_annualized_return(equity_curve, returns, periods_per_year, initial_capital)
-    sharpe_ratio = _calculate_sharpe(returns, periods_per_year)
-    sortino_ratio = _calculate_sortino(returns, periods_per_year)
+    sharpe_ratio = _calculate_sharpe(returns, periods_per_year, rf_per_period)
+    sortino_ratio = _calculate_sortino(returns, periods_per_year, rf_per_period)
     max_drawdown, max_drawdown_duration = _calculate_max_drawdown_and_duration(equity_curve)
     calmar_ratio = annualized_return / max_drawdown if max_drawdown > 0 else float('inf')
-    psr_value = _calculate_psr(returns, periods_per_year, sr_benchmark=1.0)
+    psr_value = _calculate_psr(returns, periods_per_year, rf_per_period, 1.0)
     volatility = returns.std() * np.sqrt(periods_per_year)
 
     # alpha and beta (S&P 500 benchmark)
-    alpha, beta = _calculate_alpha_beta(
-        returns,
-        equity_curve.index[0],
-        equity_curve.index[-1],
-        data_provider,
-        bar_size,
-        periods_per_year,
-    )
+    alpha, beta = _calculate_alpha_beta(returns, periods_per_year, rf_annual, sp500)
 
     var_95=np.percentile(returns, 5) * np.sqrt(periods_per_year)
     cvar_95=returns[returns <= np.percentile(returns, 5)].mean() * np.sqrt(periods_per_year)
-
 
     return PerformanceMetrics(
         final_portfolio_value=final_value,
@@ -93,7 +108,8 @@ def calculate_metrics(
         total_orders=len(trades)
     )
 
-def _calculate_sharpe(returns: pd.Series, periods_per_year: int) -> float:
+
+def _calculate_sharpe(returns: pd.Series, periods_per_year: int, rf_per_period: float) -> float:
     """
     Annualized Sharpe ratio.
 
@@ -101,9 +117,9 @@ def _calculate_sharpe(returns: pd.Series, periods_per_year: int) -> float:
     where N = periods_per_year.
     """
     if len(returns) > 1 and returns.std() > 0:
-        rf = _per_period_rf(periods_per_year)
-        return float(np.sqrt(periods_per_year) * (returns.mean() - rf) / returns.std())
+        return float(np.sqrt(periods_per_year) * (returns.mean() - rf_per_period) / returns.std())
     return 0.0
+
 
 def _calculate_annualized_return(equity_curve: pd.Series, returns: pd.Series, periods_per_year: int, initial_capital: float) -> float:
     """Calculate annualized return based on equity curve and returns."""
@@ -119,15 +135,15 @@ def _calculate_annualized_return(equity_curve: pd.Series, returns: pd.Series, pe
 
     return annualized_return
 
-def _calculate_sortino(returns: pd.Series, periods_per_year: int) -> float:
+
+def _calculate_sortino(returns: pd.Series, periods_per_year: int, rf_per_period: float) -> float:
     """
-    Annualized Sortino ratio = √(mean(min(r - rf, 0)²))
+    Annualized Sortino ratio = sqrt(mean(min(r - rf, 0)²)) / DD
     """
     if len(returns) < 2:
         return 0.0
 
-    rf = _per_period_rf(periods_per_year)
-    excess_returns = returns - rf
+    excess_returns = returns - rf_per_period
 
     downside = np.minimum(excess_returns, 0)
     dd = np.sqrt((downside ** 2).mean())
@@ -162,8 +178,8 @@ def _calculate_max_drawdown_and_duration(equity_curve: pd.Series) -> Tuple[float
 def _calculate_psr(
     returns: pd.Series,
     periods_per_year: int,
-    risk_free_rate: float = _ANNUAL_RISK_FREE_RATE,
-    sr_benchmark: float = 1.0,
+    rf_per_period: float,
+    sr_benchmark: float,
 ) -> float:
     """
     Probabilistic Sharpe Ratio: probability that the true Sharpe exceeds
@@ -176,8 +192,7 @@ def _calculate_psr(
     if T < 2:
         return 0.0
 
-    rf = risk_free_rate / periods_per_year
-    excess = r - rf
+    excess = r - rf_per_period
 
     mu = excess.mean()
     sigma = excess.std(ddof=1)
@@ -205,14 +220,7 @@ def _calculate_psr(
 
     return float(psr)
 
-def _calculate_alpha_beta(
-    returns: pd.Series,
-    start_date: datetime,
-    end_date: datetime,
-    data_provider: BaseDataProvider,
-    bar_size: BarSize,
-    periods_per_year: int,
-) -> Tuple[float, float]:
+def _calculate_alpha_beta(returns: pd.Series, periods_per_year: int, rf_annual: float, sp500: pd.Series) -> Tuple[float, float]:
     """
     Calculate CAPM alpha and beta against S&P 500 benchmark.
 
@@ -221,33 +229,20 @@ def _calculate_alpha_beta(
     bar sizes match. The raw yfinance fallback fetches daily data and
     resamples manually so the periods still align.
     """
-    try:
-        spy = data_provider.get_data(
-            symbols=['^GSPC'],
-            start_date=start_date,
-            end_date=end_date,
-            bar_size=bar_size,         # same cadence as strategy
-        )
-        close = spy[('^GSPC', 'close')]
+    
+    benchmark_returns = sp500.pct_change().dropna()
+    aligned_returns, aligned_benchmark = returns.align(benchmark_returns, join="inner")
 
-        benchmark_returns = close.pct_change().dropna()
+    if len(aligned_returns) < 2:
+        return 0.0, 0.0
 
-        aligned_returns, aligned_benchmark = returns.align(benchmark_returns, join="inner")
+    # beta = Cov(r_s, r_b) / Var(r_b) = covmtx[0][1] / covmtx[1][1]
+    cov_matrix = np.cov(aligned_returns, aligned_benchmark)
+    beta = cov_matrix[0][1] / cov_matrix[1][1]
 
-        if len(aligned_returns) < 2:
-            return 0.0, 0.0
+    # alpha
+    strategy_annual_return = (1 + aligned_returns.mean()) ** periods_per_year - 1
+    benchmark_annual_return = (1 + aligned_benchmark.mean()) ** periods_per_year - 1
+    alpha = strategy_annual_return - (rf_annual + beta * (benchmark_annual_return - rf_annual))
 
-        # beta = Cov(r_s, r_b) / Var(r_b) = covmtx[0][1] / covmtx[1][1]
-        cov_matrix = np.cov(aligned_returns, aligned_benchmark)
-        beta = cov_matrix[0][1] / cov_matrix[1][1]
-
-        # alpha (annualized via correct periods_per_year)
-        strategy_annual_return = (1 + aligned_returns.mean()) ** periods_per_year - 1
-        benchmark_annual_return = (1 + aligned_benchmark.mean()) ** periods_per_year - 1
-        alpha = strategy_annual_return - (_ANNUAL_RISK_FREE_RATE + beta * (benchmark_annual_return - _ANNUAL_RISK_FREE_RATE))
-
-        return float(alpha), float(beta)
-
-    except Exception as e:
-        logger.warning(f"Alpha/beta calculation failed: {e}")
-        return -float("inf"), -float("inf")
+    return float(alpha), float(beta)
