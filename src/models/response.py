@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
@@ -29,12 +30,12 @@ class PerformanceMetrics(BaseModel):
     # ratios
     sharpe: float = Field(..., description="Risk-adjusted return per unit of volatility")
     sortino: float = Field(..., description="Risk-adjusted return per unit of downside volatility")
-    calmar: float = Field(..., description="Annualized return divided by max drawdown")
+    calmar: Optional[float] = Field(None, description="Annualized return divided by max drawdown")
     psr: float = Field(..., description="Probability that the estimated Sharpe ratio exceeds one")
 
     # return
     total_pct_return: float = Field(..., description="Total return as a percentage of starting equity")
-    annualized_return: float = Field(..., description="Total return scaled to a one-year period")
+    annualized_return: Optional[float] = Field(None, description="Total return scaled to a one-year period")
 
     # risk
     ann_vol: float = Field(..., description="Annualized standard deviation of returns")

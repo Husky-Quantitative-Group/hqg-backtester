@@ -1,7 +1,7 @@
 # src.utils.metrics
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 from hqg_algorithms import BarSize
 from ..models.response import Trade, PerformanceMetrics
@@ -56,9 +56,33 @@ def calculate_metrics(
         equity_curve_data: Dict[datetime, float],
         trades: List[Trade],
         initial_capital: float,
-        data_provider:BaseDataProvider,
+        data_provider: BaseDataProvider,
         bar_size: BarSize = BarSize.DAILY,
     ) -> PerformanceMetrics:
+
+    # empty equity curve
+    if not equity_curve_data:
+        logger.warning("Empty equity_curve_data; returning metrics set to zero.")
+        return PerformanceMetrics(
+            final_portfolio_value=initial_capital,
+            fees=0,
+            net_profit=0.0,
+            volume=0.0,
+            sharpe=0.0,
+            sortino=0.0,
+            calmar=0.0,
+            psr=0.0,
+            total_pct_return=0.0,
+            annualized_return=0.0,
+            ann_vol=0.0,
+            max_drawdown=0.0,
+            max_drawdown_duration=0,
+            var_95=0.0,
+            cvar_95=0.0,
+            alpha=0.0,
+            beta=0.0,
+            total_orders=len(trades),
+        )
 
     equity_curve = pd.Series(equity_curve_data)
     periods_per_year = _get_periods(bar_size)
@@ -73,11 +97,13 @@ def calculate_metrics(
     total_return = (final_value - initial_capital) / initial_capital
 
     # annualized return
-    annualized_return = _calculate_annualized_return(equity_curve, returns, periods_per_year, initial_capital)
+    annualized_return = _calculate_annualized_return(returns, periods_per_year)
     sharpe_ratio = _calculate_sharpe(returns, periods_per_year, rf_per_period)
     sortino_ratio = _calculate_sortino(returns, periods_per_year, rf_per_period)
     max_drawdown, max_drawdown_duration = _calculate_max_drawdown_and_duration(equity_curve)
-    calmar_ratio = annualized_return / max_drawdown if max_drawdown > 0 else float('inf')
+    
+    calmar_ratio = (annualized_return / max_drawdown) if (annualized_return is not None and max_drawdown > 0) else None
+
     psr_value = _calculate_psr(returns, periods_per_year, rf_per_period, 1.0)
     volatility = returns.std() * np.sqrt(periods_per_year)
 
@@ -85,7 +111,7 @@ def calculate_metrics(
     alpha, beta = _calculate_alpha_beta(returns, periods_per_year, rf_annual, sp500)
 
     var_95 = np.percentile(returns, 5)
-    cvar_95 = returns[returns <= np.percentile(returns, 5)].mean()
+    cvar_95 = returns[returns <= var_95].mean() if (returns <= var_95).any() else var_95
 
     return PerformanceMetrics(
         final_portfolio_value=final_value,
@@ -97,7 +123,7 @@ def calculate_metrics(
         calmar=calmar_ratio,
         psr=psr_value,
         total_pct_return=total_return * 100,
-        annualized_return=annualized_return * 100,
+        annualized_return=annualized_return * 100 if annualized_return is not None else None,
         ann_vol=volatility,
         max_drawdown=max_drawdown * 100,
         max_drawdown_duration=max_drawdown_duration,
@@ -121,24 +147,23 @@ def _calculate_sharpe(returns: pd.Series, periods_per_year: int, rf_per_period: 
     return 0.0
 
 
-def _calculate_annualized_return(equity_curve: pd.Series, returns: pd.Series, periods_per_year: int, initial_capital: float) -> float:
-    """Calculate annualized return based on equity curve and returns."""
-    annualized_return = 0.0
-    
-    if len(equity_curve) > 1:
-        if len(returns) >= max(4, periods_per_year // 4):
-            # geometric default
-            annualized_return = (1 + returns).prod() ** (periods_per_year / len(returns)) - 1
-        else:
-            # arithmetic for short horizon
-            annualized_return = returns.mean() * periods_per_year
-
-    return annualized_return
+_MIN_OBS_ANNUALIZED = 4
+ 
+def _calculate_annualized_return(returns: pd.Series, periods_per_year: int) -> Optional[float]:
+    """Calculate geometric annualized return. Returns None when too few observations."""
+    if len(returns) < _MIN_OBS_ANNUALIZED:
+        logger.warning(f"Only {len(returns)} returns; annualized return unreliable.")
+        return None
+ 
+    return float((1 + returns).prod() ** (periods_per_year / len(returns)) - 1)
 
 
 def _calculate_sortino(returns: pd.Series, periods_per_year: int, rf_per_period: float) -> float:
     """
-    Annualized Sortino ratio = sqrt(mean(min(r - rf, 0)²)) / DD
+    Annualized Sortino ratio.
+
+    Sortino = sqrt(N) * mean(r - rf) / DD
+    where DD = sqrt(mean(min(r - rf, 0)^2)) is the downside deviation.
     """
     if len(returns) < 2:
         return 0.0
@@ -172,7 +197,7 @@ def _calculate_max_drawdown_and_duration(equity_curve: pd.Series) -> Tuple[float
         else:
             current_duration = 0
 
-    return float(drawdown.min() * -1), max_duration
+    return float(abs(drawdown.min())), max_duration
 
 
 def _calculate_psr(
@@ -203,11 +228,11 @@ def _calculate_psr(
     sr_hat = (mu / sigma) * np.sqrt(periods_per_year)
 
     skew = r.skew()
-    kurt = r.kurtosis()     # pandas returns excess kurtosis
+    excess_kurt = r.kurtosis()
 
     # Standard error of Sharpe ratio (Lo 2002)
     sr_std = np.sqrt(
-        (1 - skew * sr_hat + ((kurt - 1) / 4.0) * sr_hat ** 2) / (T - 1)
+        (1 - skew * sr_hat + ((excess_kurt - 1) / 4.0) * sr_hat ** 2) / (T - 1)
     )
 
     if sr_std <= 0 or np.isnan(sr_std):
@@ -233,7 +258,16 @@ def _calculate_alpha_beta(returns: pd.Series, periods_per_year: int, rf_annual: 
     benchmark_returns = sp500.pct_change().dropna()
     aligned_returns, aligned_benchmark = returns.align(benchmark_returns, join="inner")
 
-    if len(aligned_returns) < 2:
+    # warn when alignment drops a significant fraction of data
+    if len(returns) > 0:
+        dropped_frac = 1.0 - len(aligned_returns) / len(returns)
+        if dropped_frac > 0.05:
+            logger.warning(
+                f"Benchmark alignment dropped {dropped_frac:.1%} of strategy "
+                f"returns ({len(returns)} -> {len(aligned_returns)} observations)."
+            )
+
+    if len(aligned_returns) < _MIN_OBS_ANNUALIZED:
         return 0.0, 0.0
 
     # beta = Cov(r_s, r_b) / Var(r_b) = covmtx[0][1] / covmtx[1][1]
