@@ -50,22 +50,13 @@ def calculate_metrics(
     total_return = (final_value - initial_capital) / initial_capital
 
     # annualized return
-    if len(equity_curve) > 1:
-        if len(returns) >= max(4, periods_per_year // 4):
-            # geometric default
-            annualized_return = (1 + returns).prod() ** (periods_per_year / len(returns)) - 1
-        else:
-            # arithmetic for short horizon
-            annualized_return = returns.mean() * periods_per_year
-    else:
-        annualized_return = 0.0
-
+    annualized_return = _calculate_annualized_return(equity_curve, returns, periods_per_year, initial_capital)
     sharpe_ratio = _calculate_sharpe(returns, periods_per_year)
     sortino_ratio = _calculate_sortino(returns, periods_per_year)
-    max_drawdown = _calculate_max_drawdown(equity_curve)
-    win_rate = _calculate_win_rate(trades)
-    avg_win, avg_loss = _calculate_avg_win_loss(trades)
+    max_drawdown, max_drawdown_duration = _calculate_max_drawdown_and_duration(equity_curve)
+    calmar_ratio = annualized_return / max_drawdown if max_drawdown > 0 else float('inf')
     psr_value = _calculate_psr(returns, periods_per_year, sr_benchmark=1.0)
+    volatility = returns.std() * np.sqrt(periods_per_year)
 
     # alpha and beta (S&P 500 benchmark)
     alpha, beta = _calculate_alpha_beta(
@@ -77,19 +68,29 @@ def calculate_metrics(
         periods_per_year,
     )
 
+    var_95=np.percentile(returns, 5) * np.sqrt(periods_per_year)
+    cvar_95=returns[returns <= np.percentile(returns, 5)].mean() * np.sqrt(periods_per_year)
+
+
     return PerformanceMetrics(
-        total_return=total_return,
-        annualized_return=annualized_return,
+        final_portfolio_value=final_value,
+        fees=0, # TODO: track fees in backtest
+        net_profit=final_value - initial_capital,
+        volume=sum(t.price * t.shares for t in trades),
         sharpe=sharpe_ratio,
-        max_drawdown=max_drawdown,
-        win_rate=win_rate,
-        total_orders=len(trades),
         sortino=sortino_ratio,
+        calmar=calmar_ratio,
+        psr=psr_value,
+        total_pct_return=total_return * 100,
+        annualized_return=annualized_return * 100,
+        ann_vol=volatility,
+        max_drawdown=max_drawdown * 100,
+        max_drawdown_duration=max_drawdown_duration,
+        var_95=var_95,
+        cvar_95=cvar_95,
         alpha=alpha,
         beta=beta,
-        psr=psr_value,
-        avg_win=avg_win,
-        avg_loss=avg_loss,
+        total_orders=len(trades)
     )
 
 def _calculate_sharpe(returns: pd.Series, periods_per_year: int) -> float:
@@ -103,6 +104,20 @@ def _calculate_sharpe(returns: pd.Series, periods_per_year: int) -> float:
         rf = _per_period_rf(periods_per_year)
         return float(np.sqrt(periods_per_year) * (returns.mean() - rf) / returns.std())
     return 0.0
+
+def _calculate_annualized_return(equity_curve: pd.Series, returns: pd.Series, periods_per_year: int, initial_capital: float) -> float:
+    """Calculate annualized return based on equity curve and returns."""
+    annualized_return = 0.0
+    
+    if len(equity_curve) > 1:
+        if len(returns) >= max(4, periods_per_year // 4):
+            # geometric default
+            annualized_return = (1 + returns).prod() ** (periods_per_year / len(returns)) - 1
+        else:
+            # arithmetic for short horizon
+            annualized_return = returns.mean() * periods_per_year
+
+    return annualized_return
 
 def _calculate_sortino(returns: pd.Series, periods_per_year: int) -> float:
     """
@@ -123,115 +138,26 @@ def _calculate_sortino(returns: pd.Series, periods_per_year: int) -> float:
     return float(np.sqrt(periods_per_year) * excess_returns.mean() / dd)
 
 
-def _calculate_max_drawdown(equity_curve: pd.Series) -> float:
-    """Calculate maximum drawdown from peak. Timeframe-agnostic."""
+def _calculate_max_drawdown_and_duration(equity_curve: pd.Series) -> Tuple[float, int]:
+    """Calculate maximum drawdown from peak and duration."""
     if len(equity_curve) < 2:
-        return 0.0
+        return 0.0, 0
 
     running_max = equity_curve.expanding().max()
     drawdown = (equity_curve - running_max) / running_max
-    return float(drawdown.min() * -1)
 
-# TODO: currently per-matched-lot, not per-trade
-def _calculate_win_rate(trades: List[Trade]) -> float:
-    """Calculate win rate based on realized P&L of closed positions (FIFO)."""
-    if not trades:
-        return 0.0
+    max_duration = 0
+    current_duration = 0
 
-    position_pnl = {}
-    winning_trades = 0
-    total_closed_trades = 0
-
-    for trade in trades:
-        symbol = trade.ticker
-        if symbol not in position_pnl:
-            position_pnl[symbol] = {'buys': [], 'sells': []}
-
-        if trade.type.value == 'Buy':
-            position_pnl[symbol]['buys'].append((trade.price, trade.amount))
+    for dd in drawdown:
+        if dd < 0:
+            current_duration += 1
+            max_duration = max(max_duration, current_duration)
         else:
-            position_pnl[symbol]['sells'].append((trade.price, trade.amount))
+            current_duration = 0
 
-    for symbol, sides in position_pnl.items():
-        buys = sides['buys']
-        sells = sides['sells']
+    return float(drawdown.min() * -1), max_duration
 
-        buy_idx = 0
-        for sell_price, sell_qty in sells:
-            remaining_qty = sell_qty
-
-            while remaining_qty > 0 and buy_idx < len(buys):
-                buy_price, buy_qty = buys[buy_idx]
-                qty_matched = min(remaining_qty, buy_qty)
-
-                pnl = (sell_price - buy_price) * qty_matched
-                if pnl > 0:
-                    winning_trades += 1
-
-                total_closed_trades += 1
-
-                remaining_qty -= qty_matched
-                buy_qty -= qty_matched
-                buys[buy_idx] = (buy_price, buy_qty)
-
-                if buy_qty == 0:
-                    buy_idx += 1
-
-    if total_closed_trades == 0:
-        return 0.0
-
-    return winning_trades / total_closed_trades
-
-def _calculate_avg_win_loss(trades: List[Trade]) -> Tuple[float, float]:
-    """Calculate average win and loss percentage per trade (FIFO)."""
-    if not trades:
-        return 0.0, 0.0
-
-    position_pnl = {}
-    wins = []
-    losses = []
-
-    for trade in trades:
-        symbol = trade.ticker
-        if symbol not in position_pnl:
-            position_pnl[symbol] = {'buys': [], 'sells': []}
-
-        if trade.type.value == 'Buy':
-            position_pnl[symbol]['buys'].append((trade.price, trade.amount))
-        else:
-            position_pnl[symbol]['sells'].append((trade.price, trade.amount))
-
-    for symbol, sides in position_pnl.items():
-        buys = sides['buys']
-        sells = sides['sells']
-
-        buy_idx = 0
-        for sell_price, sell_qty in sells:
-            remaining_qty = sell_qty
-
-            while remaining_qty > 0 and buy_idx < len(buys):
-                buy_price, buy_qty = buys[buy_idx]
-                qty_matched = min(remaining_qty, buy_qty)
-
-                pnl_per_share = sell_price - buy_price
-                pnl_pct = pnl_per_share / buy_price if buy_price != 0 else 0
-
-                if pnl_pct > 0:
-                    wins.append(pnl_pct)
-                elif pnl_pct < 0:
-                    losses.append(pnl_pct)
-
-                remaining_qty -= qty_matched
-                buy_qty -= qty_matched
-                buys[buy_idx] = (buy_price, buy_qty)
-
-                if buy_qty == 0:
-                    buy_idx += 1
-
-    avg_win = float(np.mean(wins)) if wins else 0.0
-    avg_loss = float(np.mean(losses)) if losses else 0.0
-
-    return avg_win, avg_loss
 
 def _calculate_psr(
     returns: pd.Series,

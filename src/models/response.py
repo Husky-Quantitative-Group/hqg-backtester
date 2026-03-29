@@ -42,7 +42,8 @@ class PerformanceMetrics(BaseModel):
     max_drawdown_duration: int = Field(..., description="Longest drawdown period in trading days")
     var_95: float = Field(..., description="Maximum expected loss at 95% confidence over one day")
     cvar_95: float = Field(..., description="Expected loss in the worst 5% of scenarios")
-    prob_overfit: float = Field(..., description="Estimated probability that performance is due to overfitting")
+    # TODO:
+    # prob_overfit: float = Field(..., description="Estimated probability that performance is due to overfitting")
 
     alpha: float = Field(..., description="Excess return relative to the benchmark (S&P)")
     beta: float = Field(..., description="Sensitivity of returns to benchmark (S&P) movements")
