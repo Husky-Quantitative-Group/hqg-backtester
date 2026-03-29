@@ -18,7 +18,7 @@ def build_backtest_response(
     data_provider: BaseDataProvider,
 ) -> BacktestResponse:
     
-    trades = [Trade(**t) for t in raw_result.trades]
+    trades = [Trade(**t) for t in raw_result.orders]
 
     equity_curve_dt = {
         datetime.fromisoformat(ts): val

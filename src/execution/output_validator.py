@@ -34,14 +34,14 @@ class OutputValidator:
             if math.isnan(val) or math.isinf(val):
                 errors.add(f"Invalid equity curve value at {ts}: {val}")
 
-        # Trade check
-        for trade in output.trades:
-            price = trade.get("price", 0)
-            amount = trade.get("amount", 0)
+        # Order check
+        for order in output.orders:
+            price = order.get("price", 0)
+            shares = order.get("shares", 0)
             if price <= 0:
-                errors.add(f"Trade with non-positive price: {price}")
-            if amount <= 0:
-                errors.add(f"Trade with non-positive amount: {amount}")
+                errors.add(f"Order with non-positive price: {price}")
+            if shares <= 0:
+                errors.add(f"Order with non-positive shares: {shares}")
 
         # Must have at least some equity curve data
         if not output.equity_curve:
