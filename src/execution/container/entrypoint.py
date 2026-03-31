@@ -102,8 +102,8 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         if strategy_class is None:
             raise ValueError("No Strategy subclass found in strategy_code")
         strategy_logs: list[str] = []
+        strategy_class._log_handler = strategy_logs.append
         strategy = strategy_class()
-        strategy._log_handler = strategy_logs.append
 
         # Initialize portfolio
         symbols = strategy.universe
