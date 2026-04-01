@@ -153,7 +153,6 @@ The API returns a `BacktestResponse` object (no `success/data` wrapper). Top-lev
 Notes:
 
 - `orders[*]` uses frontend aliases: `symbol`, `action`, `shares`
-- `metrics.sharpe_ratio` is returned under that alias (not `sharpe`)
 - `candles[*].time` is a Unix timestamp (seconds)
 
 ## Strategy Requirements

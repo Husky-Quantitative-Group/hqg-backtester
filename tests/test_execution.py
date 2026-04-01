@@ -87,7 +87,6 @@ class TestCorrectness:
         result = await handler.run_backtest(request)
 
         assert result.metrics is not None
-        assert result.equity_stats is not None
         assert result.parameters.starting_equity == 10000.0
         assert len(result.candles) > 0, "Should have equity curve data"
 
@@ -122,7 +121,6 @@ class TestCorrectness:
         result = await handler.run_backtest(request)
 
         assert result.metrics is not None
-        assert result.equity_stats is not None
         assert len(result.orders) > 0, "Multi-asset strategy should generate orders"
 
     @pytest.mark.integration
@@ -148,7 +146,7 @@ class TestCorrectness:
         result_high = await handler.run_backtest(request_high)
 
         # Higher commission should result in lower or equal final equity
-        assert result_high.equity_stats.fees >= result_zero.equity_stats.fees
+        assert result_high.metrics.fees >= result_zero.metrics.fees
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -340,7 +338,6 @@ class TestIntegration:
         result = await handler.run_backtest(request)
 
         assert result.metrics is not None
-        assert result.equity_stats is not None
         assert len(result.candles) > 0
 
     @pytest.mark.asyncio
@@ -359,7 +356,6 @@ class TestIntegration:
         result = await handler.run_backtest(request)
 
         assert result.metrics is not None
-        assert result.equity_stats is not None
         assert len(result.candles) > 0
 
 @pytest.mark.integration
@@ -414,7 +410,6 @@ class TestLoad:
         for request_id, response, elapsed in results:
             data = response.json()
             assert "metrics" in data
-            assert "equity_stats" in data
             assert "candles" in data
             assert "orders" in data
             metrics = data["metrics"]
@@ -478,7 +473,6 @@ class TestStress:
         for request_id, response, elapsed in results:
             data = response.json()
             assert "metrics" in data
-            assert "equity_stats" in data
             assert "candles" in data
             assert "orders" in data
             metrics = data["metrics"]
@@ -509,7 +503,7 @@ async def ProfileTests():
     #     request = make_request(code)
     #     br = await handler.run_backtest(request=request)
     # profiler.disable()
-    # print(br.parameters, br.equity_stats, br.metrics)
+    # print(br.parameters, br.metrics)
     
     # Profile integration test
     profiler.enable()
