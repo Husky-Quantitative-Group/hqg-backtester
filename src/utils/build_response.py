@@ -6,6 +6,7 @@ from ..models.response import (
     BacktestParameters,
     EquityCandle,
     Trade,
+    WeightSnapshot
 )
 from ..services.data_provider.base_provider import BaseDataProvider
 from .metrics import calculate_metrics
@@ -33,12 +34,21 @@ def build_backtest_response(
         bar_size=raw_result.bar_size,
     )
 
+    # NOTE: ohlc/weights Response composition duplicate timestamp iteration
     candles = [
         EquityCandle(
             time=int(datetime.fromisoformat(ts).timestamp()),
             **ohlc_vals,
         )
         for ts, ohlc_vals in raw_result.ohlc.items()
+    ]
+
+    holding_weights = [
+        WeightSnapshot(
+            time=int(datetime.fromisoformat(ts).timestamp()),
+            weights=weights,
+        )
+        for ts, weights in raw_result.holding_weights.items()
     ]
 
     return BacktestResponse(
@@ -50,6 +60,7 @@ def build_backtest_response(
             end_date=request.end_date,
         ),
         metrics=metrics,
-        candles=candles,
         orders=trades,
+        candles=candles,
+        holding_weights=holding_weights,
     )
