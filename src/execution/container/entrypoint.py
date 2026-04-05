@@ -117,7 +117,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         final_prices = backtester._get_close(final_slice, symbols)
 
         return {
-            "trades": [t.model_dump() for t in trades],
+            "orders": [t.model_dump() for t in trades],
             "equity_curve": {ts.isoformat(): value for ts, value in portfolio.equity_curve.items()},
             "ohlc": ohlc,
             "final_value": portfolio.get_total_value(final_prices),
@@ -131,7 +131,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
     except Exception as e:
         errors.add(f"Strategy execution error: {str(e)}")
         return {
-            "trades": [],
+            "orders": [],
             "equity_curve": {},
             "ohlc": {},
             "final_value": 0.0,

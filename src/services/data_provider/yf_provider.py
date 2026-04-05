@@ -197,8 +197,7 @@ class YFDataProvider(BaseDataProvider):
         resampled = grouped.agg(agg).dropna(how="all")
 
         # replace period-end dates with the last real trading date per group
-        last_date_map = {period: group.index[-1] for period, group in grouped}
-        real_dates = [last_date_map[p] for p in resampled.index]
+        real_dates = grouped.nth(-1).index
         resampled.index = pd.DatetimeIndex(real_dates, name=df.index.name)
 
         return resampled

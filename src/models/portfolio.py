@@ -95,8 +95,8 @@ class Portfolio:
                 trades.append(Trade(
                     id=trade_id,
                     timestamp=timestamp,
-                    symbol=symbol,
-                    action=OrderType.BUY,
+                    ticker=symbol,
+                    type=OrderType.BUY,
                     shares=shares_to_trade,
                     price=price,
                 ))
@@ -111,8 +111,8 @@ class Portfolio:
                 trades.append(Trade(
                     id=trade_id,
                     timestamp=timestamp,
-                    symbol=symbol,
-                    action=OrderType.SELL,
+                    ticker=symbol,
+                    type=OrderType.SELL,
                     shares=shares_to_sell,
                     price=price,
                 ))

@@ -15,7 +15,7 @@ class ExecutionPayload(BaseModel):
 
 
 class RawExecutionResult(BaseModel):
-    trades: List[Dict[str, Any]] = Field(default_factory=list, description="Raw trade data")
+    orders: List[Dict[str, Any]] = Field(default_factory=list, description="Raw trade data")
     equity_curve: Dict[str, float] = Field(default_factory=dict, description="Timestamp -> equity mapping")
     ohlc: Dict[str, Dict[str, float]] = Field(default_factory=dict, description="Timestamp -> portfolio OHLC")
     final_value: float = Field(..., description="Final portfolio value")
