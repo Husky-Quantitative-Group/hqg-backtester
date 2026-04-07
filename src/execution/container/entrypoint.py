@@ -90,6 +90,15 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         # TODO: refactor w/ StrategyLoader (no write)
         # Load strategy class
         strategy_namespace = {}
+
+        # Inject config module if config_params provided
+        if payload.config_params:
+            import types
+            config_module = types.ModuleType('config')
+            for key, value in payload.config_params.items():
+                setattr(config_module, key, value)
+            sys.modules['config'] = config_module
+
         exec(payload.strategy_code, strategy_namespace)
 
         # Find Strategy subclass
