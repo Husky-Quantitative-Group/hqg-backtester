@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 
 class BacktestRequestError(BaseModel):
@@ -53,7 +53,18 @@ class BacktestRequest(BaseModel):
     initial_capital: float = Field(default=10000, gt=0)
     commission: Optional[float] = Field(default=0.0, ge=0, description="Commission per trade")
     slippage: Optional[float] = Field(default=0.0, ge=0, le=1.0, description="Slippage as percentage (0-1)")
+    config_params: Optional[Dict[str, Any]] = Field(default=None, description="Optional config parameters injected into the sandbox as 'config' module")
     errors: BacktestRequestError = Field(default_factory=BacktestRequestError, exclude=True)
+
+    @field_validator('config_params')
+    @classmethod
+    def validate_config_params(cls, v):
+        if v is None:
+            return v
+        import json
+        if len(json.dumps(v).encode('utf-8')) > 100_000:
+            raise ValueError("config_params too large (max 100KB)")
+        return v
 
     # TODO: make more robust
     @field_validator('strategy_code')
