@@ -72,11 +72,6 @@ class PerformanceMetrics(BaseModel):
     largest_loss: float = Field(0.0, description="Largest single trade loss")
     profit_factor: Optional[float] = Field(None, description="Gross profit divided by gross loss")
     expectancy: float = Field(0.0, description="Expected P&L per trade")
-    
-
-    alpha: float = Field(..., description="Excess return relative to the benchmark (S&P)")
-    beta: float = Field(..., description="Sensitivity of returns to benchmark (S&P) movements")
-    total_orders: int = Field(..., description="Total number of trades executed")
 
 
 class EquityCandle(BaseModel):
@@ -118,3 +113,5 @@ class BacktestResponse(BaseModel):
     metrics: PerformanceMetrics
     candles: list[EquityCandle]
     orders: list[Trade]
+    drawdown_series: list[DrawdownPoint] = Field(default_factory=list, description="Drawdown time series for underwater chart")
+    benchmark_candles: list[BenchmarkCandle] = Field(default_factory=list, description="SPY equity curve normalized to starting capital")

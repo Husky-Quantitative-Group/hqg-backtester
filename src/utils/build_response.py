@@ -12,7 +12,6 @@ from ..models.response import (
 from ..services.data_provider.base_provider import BaseDataProvider
 from .metrics import (
     calculate_metrics,
-    calculate_metrics, 
     compute_drawdown_series, 
     compute_benchmark_candles,
 )
