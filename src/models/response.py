@@ -88,6 +88,21 @@ class EquityCandle(BaseModel):
     close: float
 
 
+class DrawdownPoint(BaseModel):
+    """Single point in the drawdown time series"""
+    time: int = Field(..., description="Unix timestamp in seconds")
+    drawdown: float = Field(..., description="Drawdown as a negative decimal (e.g. -0.15 = -15%)")
+
+
+class BenchmarkCandle(BaseModel):
+    """OHLC candle for the benchmark equity curve (SPY), normalized to starting capital"""
+    time: int = Field(..., description="Unix timestamp in seconds")
+    open: float
+    high: float
+    low: float
+    close: float
+
+
 class BacktestParameters(BaseModel):
     """User-defined parameters used for the backtest run"""
     name: str
@@ -103,3 +118,5 @@ class BacktestResponse(BaseModel):
     metrics: PerformanceMetrics
     candles: list[EquityCandle]
     orders: list[Trade]
+    drawdown_series: list[DrawdownPoint] = Field(default_factory=list, description="Drawdown time series for underwater chart")
+    benchmark_candles: list[BenchmarkCandle] = Field(default_factory=list, description="SPY equity curve normalized to starting capital")

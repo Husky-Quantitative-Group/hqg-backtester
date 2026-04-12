@@ -468,3 +468,73 @@ def _calculate_trade_stats(trades: List[Trade]) -> dict:
         "profit_factor": gross_profit / gross_loss if gross_loss > 1e-12 else None,
         "expectancy": sum(pnls) / len(pnls) if pnls else 0.0,
     }
+    
+    
+def compute_drawdown_series(
+    equity_curve_data: Dict[datetime, float],
+) -> list:
+    """
+    Compute the full drawdown time series from an equity curve.
+    Returns a list of dicts with 'time' (unix seconds) and 'drawdown' (negative decimal).
+    """
+    if not equity_curve_data:
+        return []
+
+    equity_curve = pd.Series(equity_curve_data)
+    running_max = equity_curve.expanding().max()
+    drawdown = (equity_curve - running_max) / running_max
+
+    return [
+        {
+            "time": int(ts.timestamp()) if hasattr(ts, 'timestamp') else int(ts),
+            "drawdown": round(float(dd), 6),
+        }
+        for ts, dd in drawdown.items()
+    ]
+
+
+def compute_benchmark_candles(
+    data_provider: BaseDataProvider,
+    start_date: datetime,
+    end_date: datetime,
+    bar_size: BarSize,
+    initial_capital: float,
+) -> list:
+    """
+    Fetch SPY OHLCV data and normalize it to an equity curve starting at initial_capital.
+    Returns a list of dicts matching the BenchmarkCandle schema.
+    """
+    try:
+        df = data_provider.get_data(
+            symbols=['^GSPC'],
+            start_date=start_date,
+            end_date=end_date,
+            bar_size=bar_size,
+        )
+
+        close = df[('^GSPC', 'close')]
+        opn = df[('^GSPC', 'open')] if ('^GSPC', 'open') in df.columns else close
+        high = df[('^GSPC', 'high')] if ('^GSPC', 'high') in df.columns else close
+        low = df[('^GSPC', 'low')] if ('^GSPC', 'low') in df.columns else close
+
+        if close.empty:
+            return []
+
+        # Normalize: scale all prices so the first close equals initial_capital
+        scale = initial_capital / close.iloc[0]
+
+        candles = []
+        for ts in close.index:
+            candles.append({
+                "time": int(ts.timestamp()) if hasattr(ts, 'timestamp') else int(ts),
+                "open": round(float(opn[ts] * scale), 2),
+                "high": round(float(high[ts] * scale), 2),
+                "low": round(float(low[ts] * scale), 2),
+                "close": round(float(close[ts] * scale), 2),
+            })
+
+        return candles
+
+    except Exception as e:
+        logger.warning(f"Benchmark candle fetch failed: {e}")
+        return []
