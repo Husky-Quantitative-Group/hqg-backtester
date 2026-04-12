@@ -71,17 +71,38 @@ def calculate_metrics(
             sharpe=0.0,
             sortino=0.0,
             calmar=0.0,
+            omega=1.0,
+            treynor=None,
             psr=0.0,
             total_pct_return=0.0,
             annualized_return=0.0,
+            best_day=0.0,
+            worst_day=0.0,
+            avg_daily_return=0.0,
             ann_vol=0.0,
             max_drawdown=0.0,
             max_drawdown_duration=0,
             var_95=0.0,
             cvar_95=0.0,
+            skewness=0.0,
+            excess_kurtosis=0.0,
+            tail_ratio=0.0,
+            ulcer_index=0.0,
+            ulcer_performance_index=None,
             alpha=0.0,
             beta=0.0,
+            information_ratio=None,
+            tracking_error=None,
             total_orders=len(trades),
+            winning_trades=0,
+            losing_trades=0,
+            win_rate=0.0,
+            avg_win=0.0,
+            avg_loss=0.0,
+            largest_win=0.0,
+            largest_loss=0.0,
+            profit_factor=None,
+            expectancy=0.0,
         )
 
     equity_curve = pd.Series(equity_curve_data)
@@ -113,25 +134,67 @@ def calculate_metrics(
     var_95 = np.percentile(returns, 5)
     cvar_95 = returns[returns <= var_95].mean() if (returns <= var_95).any() else var_95
 
+    # ── NEW: expanded metrics ──
+    omega = _calculate_omega(returns, threshold=0.0)
+
+    treynor = None
+    if annualized_return is not None and abs(beta) > 0.01:
+        treynor = (annualized_return - rf_annual) / beta
+
+    best_day = float(returns.max()) if len(returns) > 0 else 0.0
+    worst_day = float(returns.min()) if len(returns) > 0 else 0.0
+    avg_daily_return = float(returns.mean()) if len(returns) > 0 else 0.0
+
+    skewness = float(returns.skew()) if len(returns) > 2 else 0.0
+    excess_kurtosis = float(returns.kurtosis()) if len(returns) > 3 else 0.0
+
+    p95 = np.percentile(returns, 95) if len(returns) > 0 else 0.0
+    p5_abs = abs(np.percentile(returns, 5)) if len(returns) > 0 else 0.0
+    tail_ratio = float(p95 / p5_abs) if p5_abs > 1e-12 else 0.0
+
+    ulcer = _calculate_ulcer_index(equity_curve)
+    upi = None
+    if annualized_return is not None and ulcer > 1e-12:
+        upi = (annualized_return - rf_annual) / (ulcer / 100.0)  # ulcer is in pct
+
+    info_ratio, tracking_err = _calculate_information_ratio_and_tracking_error(
+        returns, sp500, periods_per_year
+    )
+
+    trade_stats = _calculate_trade_stats(trades)
+
     return PerformanceMetrics(
         final_portfolio_value=final_value,
-        fees=0, # TODO: track fees in backtest
+        fees=0,  # TODO: track fees in backtest
         net_profit=final_value - initial_capital,
         volume=sum(t.price * t.shares for t in trades),
         sharpe=sharpe_ratio,
         sortino=sortino_ratio,
         calmar=calmar_ratio,
+        omega=omega,
+        treynor=treynor,
         psr=psr_value,
         total_pct_return=total_return,
         annualized_return=annualized_return if annualized_return is not None else None,
+        best_day=best_day,
+        worst_day=worst_day,
+        avg_daily_return=avg_daily_return,
         ann_vol=volatility,
         max_drawdown=max_drawdown,
         max_drawdown_duration=max_drawdown_duration,
         var_95=var_95,
         cvar_95=cvar_95,
+        skewness=skewness,
+        excess_kurtosis=excess_kurtosis,
+        tail_ratio=tail_ratio,
+        ulcer_index=ulcer,
+        ulcer_performance_index=upi,
         alpha=alpha,
         beta=beta,
-        total_orders=len(trades)
+        information_ratio=info_ratio,
+        tracking_error=tracking_err,
+        total_orders=len(trades),
+        **trade_stats,
     )
 
 
@@ -280,3 +343,128 @@ def _calculate_alpha_beta(returns: pd.Series, periods_per_year: int, rf_annual: 
     alpha = strategy_annual_return - (rf_annual + beta * (benchmark_annual_return - rf_annual))
 
     return float(alpha), float(beta)
+
+
+def _calculate_omega(returns: pd.Series, threshold: float = 0.0) -> float:
+    """
+    Omega ratio: sum of returns above threshold / sum of returns below threshold.
+    Keating & Shadwick (2002).
+    """
+    excess = returns - threshold
+    gains = excess[excess > 0].sum()
+    losses = -excess[excess < 0].sum()
+    if losses < 1e-12:
+        return 99.0
+    return float(gains / losses)
+
+
+def _calculate_ulcer_index(equity_curve: pd.Series) -> float:
+    """
+    Ulcer Index: RMS of percentage drawdowns.
+    Martin & McCann (1987).
+    """
+    if len(equity_curve) < 2:
+        return 0.0
+    running_max = equity_curve.expanding().max()
+    dd_pct = ((equity_curve - running_max) / running_max) * 100.0
+    return float(np.sqrt((dd_pct ** 2).mean()))
+
+
+def _calculate_information_ratio_and_tracking_error(
+    returns: pd.Series,
+    sp500: pd.Series,
+    periods_per_year: int,
+) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Information Ratio = mean(active_return) / std(active_return) * sqrt(N)
+    Tracking Error = annualized std dev of active returns.
+    """
+    benchmark_returns = sp500.pct_change().dropna()
+    aligned_strat, aligned_bench = returns.align(benchmark_returns, join="inner")
+
+    if len(aligned_strat) < _MIN_OBS_ANNUALIZED:
+        return None, None
+
+    active = aligned_strat - aligned_bench
+    te = float(active.std() * np.sqrt(periods_per_year))
+
+    if te < 1e-12:
+        return None, te
+
+    ir = float(active.mean() * np.sqrt(periods_per_year) / active.std())
+    return ir, te
+
+
+def _calculate_trade_stats(trades: List[Trade]) -> dict:
+    """
+    Compute trade-level statistics: win rate, avg win/loss, largest win/loss,
+    profit factor, and expectancy.
+    
+    Groups trades into round-trip pairs (buy then sell for same ticker) and
+    computes P&L per round trip. If no complete round trips exist, falls back
+    to per-trade signed P&L estimation.
+    """
+    if not trades:
+        return {
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "win_rate": 0.0,
+            "avg_win": 0.0,
+            "avg_loss": 0.0,
+            "largest_win": 0.0,
+            "largest_loss": 0.0,
+            "profit_factor": None,
+            "expectancy": 0.0,
+        }
+
+    # Build round-trip P&Ls by matching buys to subsequent sells per ticker
+    from collections import defaultdict, deque
+
+    open_positions: Dict[str, deque] = defaultdict(deque)  # ticker -> deque of (price, shares)
+    pnls: List[float] = []
+
+    for t in sorted(trades, key=lambda x: x.timestamp):
+        if t.type.value == "Buy":
+            open_positions[t.ticker].append((t.price, t.shares))
+        elif t.type.value == "Sell":
+            remaining = t.shares
+            while remaining > 0 and open_positions[t.ticker]:
+                entry_price, entry_shares = open_positions[t.ticker][0]
+                closed = min(remaining, entry_shares)
+                pnl = (t.price - entry_price) * closed
+                pnls.append(pnl)
+                remaining -= closed
+                if closed >= entry_shares:
+                    open_positions[t.ticker].popleft()
+                else:
+                    open_positions[t.ticker][0] = (entry_price, entry_shares - closed)
+
+    if not pnls:
+        return {
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "win_rate": 0.0,
+            "avg_win": 0.0,
+            "avg_loss": 0.0,
+            "largest_win": 0.0,
+            "largest_loss": 0.0,
+            "profit_factor": None,
+            "expectancy": 0.0,
+        }
+
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p <= 0]
+    gross_profit = sum(wins) if wins else 0.0
+    gross_loss = -sum(losses) if losses else 0.0
+
+    return {
+        "winning_trades": len(wins),
+        "losing_trades": len(losses),
+        "win_rate": len(wins) / len(pnls) if pnls else 0.0,
+        "avg_win": gross_profit / len(wins) if wins else 0.0,
+        "avg_loss": sum(losses) / len(losses) if losses else 0.0,
+        "largest_win": max(pnls) if pnls else 0.0,
+        "largest_loss": min(pnls) if pnls else 0.0,
+        "profit_factor": gross_profit / gross_loss if gross_loss > 1e-12 else None,
+        "expectancy": sum(pnls) / len(pnls) if pnls else 0.0,
+    }
