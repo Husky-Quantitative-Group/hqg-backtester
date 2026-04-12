@@ -6,9 +6,16 @@ from ..models.response import (
     BacktestParameters,
     EquityCandle,
     Trade,
+    DrawdownPoint, 
+    BenchmarkCandle,
 )
 from ..services.data_provider.base_provider import BaseDataProvider
-from .metrics import calculate_metrics
+from .metrics import (
+    calculate_metrics,
+    calculate_metrics, 
+    compute_drawdown_series, 
+    compute_benchmark_candles,
+)
 
 
 def build_backtest_response(
@@ -40,6 +47,12 @@ def build_backtest_response(
         )
         for ts, ohlc_vals in raw_result.ohlc.items()
     ]
+    
+    # NEW: compute drawdown series and benchmark candles
+    dd_series = compute_drawdown_series(equity_curve)
+    bench_candles = compute_benchmark_candles(
+        data_provider, start_date, end_date, bar_size, initial_capital
+    )
 
     return BacktestResponse(
         job_id=job_id,
@@ -52,4 +65,6 @@ def build_backtest_response(
         metrics=metrics,
         candles=candles,
         orders=trades,
+        drawdown_series=[DrawdownPoint(**pt) for pt in dd_series],
+        benchmark_candles=[BenchmarkCandle(**pt) for pt in bench_candles],
     )
