@@ -343,7 +343,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_sma_crossover_strategy(self):
         """SMA crossover strategy (strategy_02)."""
-        strategy_code = (_STRATS_DIR / "strategy_02_sma_crossover_qqq_weekly.py").read_text()
+        strategy_code = (_STRATS_DIR / "strategy_16_roc_ranking_monthly.py").read_text()
 
         handler = BacktestHandler()
         request = make_request(
