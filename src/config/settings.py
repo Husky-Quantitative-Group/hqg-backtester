@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 60
     RATE_LIMIT_PER_HOUR: int = 600
 
+    BACKTEST_CONCURRENCY: int = 13   # Max simultaneous individual backtests (one per member)
+    SIMULATION_CONCURRENCY: int = 5  # Max simultaneous simulation container runs
+
     # Strict timeout: max time the executor (Docker container) is allowed to run a single backtest
     MAX_EXECUTION_TIME: int = 300  # 5 min
     # Loose timeout: max total time for a request, including queue wait + execution
