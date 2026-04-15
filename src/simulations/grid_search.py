@@ -1,7 +1,6 @@
 import asyncio
 import itertools
 import logging
-from typing import Dict, Any
 
 from .base import BaseSimulation
 from ..models.request import BacktestRequest, BacktestRequestError, ExecutionException
@@ -11,15 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class GridSearchSimulation(BaseSimulation):
-    """Exhaustive Cartesian-product sweep over all parameter combinations."""
-
     async def run(self, job_id: str, request: BacktestRequest) -> SimulationResponse:
         logger.info(f"GridSearch [{job_id}] starting")
 
-        sim_type, sim_settings, param_space = self._parse_request(request)
-        objective = sim_settings.get("objective", "sharpe")
-
-        universe, cadence, market_data_json = await self._prepare(request)
+        config = request.config_params or {}
+        objective = config.get("objective", "sharpe")
+        param_space = config.get("params", {})
 
         keys = list(param_space.keys())
         combinations = [
@@ -28,7 +24,7 @@ class GridSearchSimulation(BaseSimulation):
         ]
 
         results = await asyncio.gather(
-            *[self._run_one(request, market_data_json, cadence, params) for params in combinations]
+            *[self._run_one(request, params) for params in combinations]
         )
 
         runs = [
@@ -42,6 +38,6 @@ class GridSearchSimulation(BaseSimulation):
             errors.add("All grid search runs failed; no successful results to return")
             raise ExecutionException(errors)
 
-        response = self._build_response(job_id, "grid", runs, objective)
+        result = self._build_response(job_id, "grid", runs, objective)
         logger.info(f"GridSearch [{job_id}] complete: {len(runs)}/{len(combinations)} runs succeeded")
-        return response
+        return result
