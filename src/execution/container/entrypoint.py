@@ -93,11 +93,12 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         # Load strategy class
         strategy_namespace = {}
 
-        # Inject config module if config_params provided
-        if payload.config_params:
+        # Inject config module — always reads from the nested "params" key
+        params = (payload.config_params or {}).get("params", {})
+        if params:
             import types
             config_module = types.ModuleType('config')
-            for key, value in payload.config_params.items():
+            for key, value in params.items():
                 setattr(config_module, key, value)
             sys.modules['config'] = config_module
 
