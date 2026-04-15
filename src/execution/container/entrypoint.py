@@ -9,6 +9,7 @@ from hqg_algorithms import Strategy, BarSize, Slice, Bar
 from typing import Dict, Any
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
+from src.models.recorder import PortfolioRecorder
 from src.models.request import BacktestRequestError
 from src.services.backtester import Backtester
 
@@ -49,6 +50,7 @@ def main():
             trades=[],
             equity_curve={},
             ohlc={},
+            holding_weights={},
             final_value=0.0,
             final_cash=0.0,
             final_positions={},
@@ -90,6 +92,16 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         # TODO: refactor w/ StrategyLoader (no write)
         # Load strategy class
         strategy_namespace = {}
+
+        # Inject config module — always reads from the nested "params" key
+        params = (payload.config_params or {}).get("params", {})
+        if params:
+            import types
+            config_module = types.ModuleType('config')
+            for key, value in params.items():
+                setattr(config_module, key, value)
+            sys.modules['config'] = config_module
+
         exec(payload.strategy_code, strategy_namespace)
 
         # Find Strategy subclass
@@ -105,12 +117,17 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         strategy_class._log_handler = strategy_logs.append
         strategy = strategy_class()
 
-        # Initialize portfolio
         symbols = strategy.universe
         portfolio = Portfolio(initial_cash=payload.initial_capital, symbols=symbols)
+        recorder = PortfolioRecorder(n_bars=len(timestamps), symbols=symbols)
 
-        # Run backtest loop
-        trades, ohlc = backtester._run_loop(strategy, slices, timestamps, portfolio)
+        # run backtest loop; recorder accumulates ohlc, equity, weights
+        trades = backtester._run_loop(strategy, slices, timestamps, portfolio, recorder)
+
+        # extract all time-series from recorder
+        equity_curve = recorder.to_equity_curve()
+        ohlc = recorder.to_ohlc()
+        holding_weights = recorder.to_holding_weights()
 
         # Get final prices
         final_slice = slices[timestamps[-1]]
@@ -118,8 +135,9 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
 
         return {
             "orders": [t.model_dump() for t in trades],
-            "equity_curve": {ts.isoformat(): value for ts, value in portfolio.equity_curve.items()},
-            "ohlc": ohlc,
+            "equity_curve": {ts.isoformat(): v for ts, v in equity_curve.items()},
+            "ohlc": {ts.isoformat(): v for ts, v in ohlc.items()},
+            "holding_weights": {ts.isoformat(): v for ts, v in holding_weights.items()},
             "final_value": portfolio.get_total_value(final_prices),
             "final_cash": portfolio.cash,
             "final_positions": portfolio.positions.copy(),
@@ -134,6 +152,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "orders": [],
             "equity_curve": {},
             "ohlc": {},
+            "holding_weights": {},
             "final_value": 0.0,
             "final_cash": 0.0,
             "final_positions": {},

@@ -1,10 +1,11 @@
 import asyncio
 import threading
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Union
 
 from ..models.jobs import JobRecord, JobStatus
 from ..models.response import BacktestResponse
+from ..models.simulation import SimulationResponse
 
 
 class JobStore:
@@ -19,6 +20,7 @@ class JobStore:
     """
 
     def __init__(self):
+        # TODO: For the future, move this out of memory into something like Redis.
         self._store: dict[str, JobRecord] = {}
         self._lock = asyncio.Lock()
         self._log_lock = threading.Lock()
@@ -40,7 +42,7 @@ class JobStore:
                 record.status = JobStatus.RUNNING
                 record.started_at = datetime.now(timezone.utc)
 
-    async def set_completed(self, job_id: str, result: BacktestResponse) -> None:
+    async def set_completed(self, job_id: str, result: Union[BacktestResponse, SimulationResponse]) -> None:
         async with self._lock:
             record = self._store.get(job_id)
             if record:

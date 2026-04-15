@@ -4,18 +4,11 @@ from .response import OrderType, Trade
 from hqg_algorithms import Slice
 
 class Portfolio:
-    """
-    Manages portfolio state including cash and holdings.
-    Executes rebalances and tracks all trades.
-    """
+    """ Manages portfolio state: cash, positions, rebalancing. """
     
     def __init__(self, initial_cash: float, symbols: List[str]):
         self.cash = initial_cash
         self.positions: Dict[str, float] = {symbol: 0.0 for symbol in symbols}  # ticker: quantity owned
-        self.equity_curve: Dict[datetime, float] = {}  # track NAV over time
-
-    def update_equity_curve(self, timestamp: datetime, total_value: float) -> None:
-        self.equity_curve[timestamp] = total_value
     
     def get_total_value(self, prices: Dict[str, float]) -> float:
         """ (cash + positions) """
@@ -118,40 +111,3 @@ class Portfolio:
                 ))
         
         return trades
-    
-    def update_ohlc(self, timestamp: datetime, slice_obj: Slice) -> Dict:
-        """
-        Calculate portfolio OHLC based on current positions and market OHLC.
-        
-        Args:
-            timestamp: Current timestamp
-            slice_obj: Slice object with market data
-        
-        Returns:
-            Dict with timestamp and portfolio OHLC values
-        """
-        portfolio_open = self.cash
-        portfolio_high = self.cash
-        portfolio_low = self.cash
-        portfolio_close = self.cash
-
-        for symbol, shares in self.positions.items():
-            if shares <= 0:
-                continue
-
-            bar = slice_obj.bar(symbol)
-            if bar is None:
-                continue
-
-            portfolio_open += shares * bar.open
-            portfolio_high += shares * bar.high
-            portfolio_low += shares * bar.low
-            portfolio_close += shares * bar.close
-
-        return {
-            'timestamp': timestamp,
-            'open': portfolio_open,
-            'high': portfolio_high,
-            'low': portfolio_low,
-            'close': portfolio_close
-        }

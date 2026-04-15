@@ -65,11 +65,17 @@ class BacktestParameters(BaseModel):
     start_date: datetime
     end_date: datetime
 
+class WeightSnapshot(BaseModel):
+    """Portfolio weights at a given point in time"""
+    time: int = Field(..., description="Unix timestamp in seconds")
+    weights: dict[str, float] = Field(..., description="Ticker -> weight mapping")
+
 
 class BacktestResponse(BaseModel):
     """ Backtest response format """
     job_id: str
     parameters: BacktestParameters
     metrics: PerformanceMetrics
-    candles: list[EquityCandle]
     orders: list[Trade]
+    candles: list[EquityCandle]
+    holding_weights: list[WeightSnapshot]

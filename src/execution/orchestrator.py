@@ -1,15 +1,16 @@
 import asyncio
 import logging
 import pandas as pd
-from datetime import datetime
 from typing import Dict, Any
 from hqg_algorithms import extract_metadata
 
+from typing import Optional
 from ..models.request import BacktestRequest, ValidationException, ExecutionException
 from ..services.data_provider.yf_provider import YFDataProvider
 from .executor import Executor, ExecutionPayload, RawExecutionResult
 from .output_validator import OutputValidator
 from .analysis import StaticAnalyzer
+from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +30,8 @@ class Orchestrator:
         → RawExecutionResult (ready for metrics)
     """
 
-    _semaphore = asyncio.Semaphore(13)  # 13 maximum backtests at a time (one for each member)
-
-    def __init__(self):
+    def __init__(self, semaphore: Optional[asyncio.Semaphore] = None):
+        self._semaphore = semaphore if semaphore is not None else asyncio.Semaphore(settings.BACKTEST_CONCURRENCY)
         self.data_provider = YFDataProvider()
         self.executor = Executor()
         self.output_validator = OutputValidator()
@@ -72,6 +72,8 @@ class Orchestrator:
                 logger.info(f"Fetched {len(data)} bars for {universe}")
 
                 # Convert DataFrame → JSON for container
+                
+                # TODO: Use Arrow IPC instead of JSON for faster serialization?
                 market_data_json = dataframe_to_json(data, universe)
 
                 # Build execution payload
@@ -82,7 +84,8 @@ class Orchestrator:
                     end_date=request.end_date,
                     initial_capital=request.initial_capital,
                     market_data=market_data_json,
-                    bar_size=cadence.bar_size
+                    bar_size=cadence.bar_size,
+                    config_params=request.config_params,
                 )
                 
                 # Execute our payload

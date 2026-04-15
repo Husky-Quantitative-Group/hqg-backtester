@@ -12,12 +12,14 @@ class ExecutionPayload(BaseModel):
     bar_size: BarSize = Field(default=None, description="Strategy BarSize")
     initial_capital: float = Field(default=100000.0, description="Starting cash of Python strategy", gt=0)
     market_data: Dict[str, Any] = Field(..., description="Pre-fetched OHLC data")
+    config_params: Optional[Dict[str, Any]] = Field(default=None, description="Config parameters to inject as 'config' module in sandbox")
 
 
 class RawExecutionResult(BaseModel):
     orders: List[Dict[str, Any]] = Field(default_factory=list, description="Raw trade data")
     equity_curve: Dict[str, float] = Field(default_factory=dict, description="Timestamp -> equity mapping")
     ohlc: Dict[str, Dict[str, float]] = Field(default_factory=dict, description="Timestamp -> portfolio OHLC")
+    holding_weights: Dict[str, Dict[str, float]] = Field(default_factory=dict, description="Timestamp -> holding weights")
     final_value: float = Field(..., description="Final portfolio value")
     final_cash: float = Field(..., description="Final cash balance")
     final_positions: Dict[str, float] = Field(default_factory=dict, description="Final positions held")

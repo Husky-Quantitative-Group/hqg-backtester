@@ -1,9 +1,10 @@
 from enum import Enum
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel
 
 from .response import BacktestResponse
+from .simulation import SimulationResponse
 
 
 class JobStatus(str, Enum):
@@ -20,6 +21,6 @@ class JobRecord(BaseModel):
     submitted_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    result: Optional[BacktestResponse] = None
+    result: Optional[Union[BacktestResponse, SimulationResponse]] = None
     error: Optional[str] = None
     logs: list[str] = []

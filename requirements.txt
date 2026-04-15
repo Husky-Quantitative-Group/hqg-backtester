@@ -15,3 +15,4 @@ pyarrow
 fastparquet
 PyJWT
 cryptography
+scikit-optimize
