@@ -12,6 +12,7 @@ ALLOWED_MODULES: set[str] = {
     "statistics",
     # ML, data engineering
     "scikit-learn",
+    "xgboost"
     "sklearn",
     # Optimization
     "cvxpy",
@@ -21,6 +22,7 @@ ALLOWED_MODULES: set[str] = {
     # HQG framework
     "hqg_algorithms",
     "src",
+    "config",
     # Standard library (safe)
     "datetime",
     "typing",

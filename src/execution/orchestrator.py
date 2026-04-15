@@ -72,6 +72,8 @@ class Orchestrator:
                 logger.info(f"Fetched {len(data)} bars for {universe}")
 
                 # Convert DataFrame → JSON for container
+                
+                # TODO: Use Arrow IPC instead of JSON for faster serialization?
                 market_data_json = dataframe_to_json(data, universe)
 
                 # Build execution payload
@@ -82,7 +84,8 @@ class Orchestrator:
                     end_date=request.end_date,
                     initial_capital=request.initial_capital,
                     market_data=market_data_json,
-                    bar_size=cadence.bar_size
+                    bar_size=cadence.bar_size,
+                    config_params=request.config_params,
                 )
                 
                 # Execute our payload
