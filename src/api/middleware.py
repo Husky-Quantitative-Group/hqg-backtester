@@ -1,11 +1,11 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
-from functools import lru_cache
-from http.cookies import SimpleCookie
 import asyncio
 import json
 import threading
+import time
 import urllib.request
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request, status
@@ -14,6 +14,13 @@ from fastapi.responses import JSONResponse
 import jwt
 
 from ..config.settings import settings
+
+KID_MISS_REFETCH_COOLDOWN_SECONDS = 5 * 60
+JWKS_FETCH_TIMEOUT_SECONDS = 5
+
+_jwks_lock = threading.Lock()
+_jwks_cache: dict[str, dict[str, Any]] = {}
+_last_kid_miss_refetch_at: dict[str, float] = {}
 
 
 class TimeoutMiddleware(BaseHTTPMiddleware):
@@ -125,12 +132,21 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
             )
 
         kid = header.get("kid")
+        if not kid:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized"},
+            )
 
-        # Fetch JWKS (cached)
-        jwks = self._get_jwks(self.jwks_url)
+        # Fetch JWKS from cache, then refresh once if the token kid is not found.
+        jwks = self._get_jwks(self.jwks_url, force_refresh=False)
         # Choose correct kid from JWKS.json
-        keys = jwks.get("keys") or []
+        keys = ((jwks or {}).get("keys") or [])
         jwk = next((key for key in keys if key.get("kid") == kid), None)
+        if not jwk:
+            refreshed_jwks = self._get_jwks(self.jwks_url, force_refresh=True)
+            refreshed_keys = ((refreshed_jwks or {}).get("keys") or [])
+            jwk = next((key for key in refreshed_keys if key.get("kid") == kid), None)
 
         if not jwk:
             return JSONResponse(
@@ -188,7 +204,27 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     @staticmethod
-    @lru_cache(maxsize=4)
-    def _get_jwks(jwks_url: str):
-        with urllib.request.urlopen(jwks_url, timeout=5) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+    def _get_jwks(jwks_url: str, force_refresh: bool = True) -> dict[str, Any] | None:
+        now = time.monotonic()
+
+        with _jwks_lock:
+            cached = _jwks_cache.get(jwks_url)
+            if not force_refresh and cached is not None:
+                return cached
+
+            if force_refresh:
+                last_refresh = _last_kid_miss_refetch_at.get(jwks_url, 0.0)
+                if now - last_refresh < KID_MISS_REFETCH_COOLDOWN_SECONDS:
+                    return cached
+                _last_kid_miss_refetch_at[jwks_url] = now
+
+        try:
+            with urllib.request.urlopen(jwks_url, timeout=JWKS_FETCH_TIMEOUT_SECONDS) as resp:
+                fresh = json.loads(resp.read().decode("utf-8"))
+        except Exception:
+            with _jwks_lock:
+                return _jwks_cache.get(jwks_url)
+
+        with _jwks_lock:
+            _jwks_cache[jwks_url] = fresh
+        return fresh
