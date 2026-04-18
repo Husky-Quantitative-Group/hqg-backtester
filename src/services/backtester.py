@@ -2,6 +2,7 @@ from typing import List, Dict, Optional
 from hqg_algorithms import Strategy, Slice, PortfolioView, TargetWeights, Hold, Liquidate, ExecutionTiming
 from ..models.portfolio import Portfolio
 from ..models.response import Trade
+from ..models.recorder import PortfolioRecorder
 from ..services.data_provider.base_provider import BaseDataProvider
 
 class Backtester:
@@ -16,7 +17,14 @@ class Backtester:
     # TODO: add a new route + hqg-dash tab -- MC simulation
 
     
-    def _run_loop(self, strategy: Strategy, slices: Dict, timestamps: list, portfolio: Portfolio) -> tuple[List[Trade], Dict]:
+    def _run_loop(
+        self,
+        strategy: Strategy,
+        slices: Dict,
+        timestamps: list,
+        portfolio: Portfolio,
+        recorder: PortfolioRecorder,
+    ) -> List[Trade]:
         """
         Core backtest loop.
         
@@ -25,25 +33,29 @@ class Backtester:
             slices: Pre-built dict of timestamp -> Slice
             timestamps: Ordered list of timestamps
             portfolio: Portfolio instance
+            recorder: PortfolioRecorder for time-series accumulation
         
         Returns:
-            List of Trades
-            Dict of portfolio OHLC
+            List of Trades (recorder holds ohlc, equity, weights)
         """
         universe = strategy.universe
         execution = strategy.cadence.execution
         trades = []
-        ohlc = []
 
         for i, timestamp in enumerate(timestamps):
             slice_obj = slices[timestamp]
-
-            # update ohlc with current positions (before rebalancing)
-            ohlc.append(portfolio.update_ohlc(timestamp, slice_obj))
-
             prices = self._get_close(slice_obj, universe)
             tv = portfolio.get_total_value(prices)
-            portfolio.update_equity_curve(timestamp, tv)
+
+            # capture ohlc, equity, weights
+            recorder.snapshot(
+                timestamp=timestamp,
+                cash=portfolio.cash,
+                positions=portfolio.positions,
+                slice_obj=slice_obj,
+                prices=prices,
+                total_value=tv,
+            )
 
             portfolio_view = PortfolioView(
                 equity=tv,
@@ -81,18 +93,7 @@ class Backtester:
             new_trades = portfolio.rebalance(target_weights, exec_prices, exec_timestamp)
             trades.extend(new_trades)
 
-        # convert OHLC list to dict
-        ohlc_dict = {}
-        for entry in ohlc:
-            ts = entry['timestamp']
-            ohlc_dict[str(ts)] = {
-                'open': entry['open'],
-                'high': entry['high'],
-                'low': entry['low'],
-                'close': entry['close']
-            }
-
-        return trades, ohlc_dict
+        return trades
 
 
     def _get_close(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
