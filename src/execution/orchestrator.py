@@ -1,12 +1,11 @@
 import asyncio
 import logging
 import pandas as pd
-from datetime import datetime
 from typing import Dict, Any
 from hqg_algorithms import extract_metadata
 
 from ..models.request import BacktestRequest, ValidationException, ExecutionException
-from ..services.data_provider.yf_provider import YFDataProvider
+from ..services.data_provider.hqg_datafeed_client import DataFeedClient
 from .executor import Executor, ExecutionPayload, RawExecutionResult
 from .output_validator import OutputValidator
 from .analysis import StaticAnalyzer
@@ -20,19 +19,19 @@ class Orchestrator:
 
     Flow:
         BacktestRequest
-        → parse strategy (extract universe, dates, cadence)
-        → fetch market data (YFDataProvider w/ parquet cache)
-        → convert DataFrame → JSON
-        → build ExecutionPayload
-        → Executor (Docker container)
-        → OutputValidator (sanity checks)
-        → RawExecutionResult (ready for metrics)
+        - parse strategy (extract universe, dates, cadence)
+        - fetch market data (YFDataProvider w/ parquet cache)
+        - convert DataFrame - JSON
+        - build ExecutionPayload
+        - Executor (Docker container)
+        - OutputValidator (sanity checks)
+        - RawExecutionResult (ready for metrics)
     """
 
     _semaphore = asyncio.Semaphore(13)  # 13 maximum backtests at a time (one for each member)
 
     def __init__(self):
-        self.data_provider = YFDataProvider()
+        self.data_provider = DataFeedClient()
         self.executor = Executor()
         self.output_validator = OutputValidator()
 
@@ -71,7 +70,7 @@ class Orchestrator:
                     raise ExecutionException(request.errors)
                 logger.info(f"Fetched {len(data)} bars for {universe}")
 
-                # Convert DataFrame → JSON for container
+                # Convert DataFrame - JSON for container
                 
                 # TODO: Use Arrow IPC instead of JSON for faster serialization?
                 market_data_json = dataframe_to_json(data, universe)
