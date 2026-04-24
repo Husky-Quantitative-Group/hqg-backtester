@@ -40,7 +40,7 @@ class DataFeedClient(BaseDataProvider):
             "symbols": symbols,
             "start_date": start_date.strftime("%Y-%m-%d"),
             "end_date": end_date.strftime("%Y-%m-%d"),
-            "bar_size": getattr(bar_size, "value", str(bar_size)),
+            "bar_size": bar_size.value
         }
  
         try:
@@ -91,31 +91,34 @@ class DataFeedClient(BaseDataProvider):
     @staticmethod
     def _parse_response(body: Dict[str, Any]) -> pd.DataFrame:
         """
-        Expects a symbol-grouped payload:
-
+        Expects payload:
             {
-              "bars": {
-                "AAPL": {
-                  "timestamps": ["2024-01-02", "2024-01-03", ...],
-                  "open":   [...],
-                  "high":   [...],
-                  "low":    [...],
-                  "close":  [...],
-                  "volume": [...]
-                },
-                "MSFT": { ... }
-              }
+            "bars": {
+                "AAPL": [
+                {"date": "2024-01-02", "open": ..., "high": ...,
+                "low": ..., "close": ..., "volume": ...},
+                ...
+                ],
+                "MSFT": [...]
+            },
+            "metadata": {...},
+            "warnings": [...]
             }
         """
-        bars = body.get("bars") or body.get("data") or {}
+        bars = body.get("bars") or {}
         if not bars:
             return pd.DataFrame()
 
         per_symbol: Dict[str, pd.DataFrame] = {}
-        for symbol, series in bars.items():
-            index = pd.to_datetime(series["timestamps"])
-            fields = {k: v for k, v in series.items() if k != "timestamps"}
-            per_symbol[symbol] = pd.DataFrame(fields, index=index)
+        for symbol, records in bars.items():
+            if not records:
+                continue
+            frame = pd.DataFrame.from_records(records)
+            frame.index = pd.to_datetime(frame.pop("date"))
+            per_symbol[symbol] = frame
+
+        if not per_symbol:
+            return pd.DataFrame()
 
         df = pd.concat(per_symbol, axis=1)
         df.columns.names = ["symbol", "field"]
