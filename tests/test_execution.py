@@ -513,7 +513,7 @@ async def ProfileTests():
     stream = io.StringIO()
     stats = pstats.Stats(profiler, stream=stream)
     stats.sort_stats("cumulative")
-    stats.print_stats(20)
+    stats.print_stats(50)
 
     print(stream.getvalue())
 
