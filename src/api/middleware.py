@@ -172,6 +172,7 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
                 token,
                 public_key,
                 algorithms=["RS256"],
+                leeway=90,
                 options={"require": ["exp", "sub"]},
             )
         except jwt.PyJWTError:
