@@ -9,8 +9,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-# TODO: replace with the real School of Business VM hostname before release.
-DEFAULT_API_URL = "http://hqg-vm.business.uconn.edu:8005"
+# TODO: confirm the externally reachable host and port before release. The
+# service listens on 8005, but docker-compose binds it to 127.0.0.1, so the
+# VM needs a reverse proxy (or a wider binding) for this URL to resolve.
+DEFAULT_API_URL = "http://L1BARCVDAB13OT1.business.uconn.edu:8005"
 
 
 def _env(name: str, default: float) -> float:

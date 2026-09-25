@@ -13,8 +13,9 @@ from typing import Any
 from hqg_algorithms import validate_strategy
 
 from . import __version__
-from .api import API_URL, BacktestClient
+from .api import BacktestClient
 from .render import render_logs, render_result, render_validation_errors
+from .settings import settings
 
 def _read_strategy(path: Path) -> str:
     if not path.exists():
@@ -64,7 +65,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     payload = _build_payload(args, source, name)
 
-    client = BacktestClient(API_URL)
+    client = BacktestClient(settings.API_URL)
     client.health()
     job_id = client.submit(payload)
     print(f"  job {job_id}", file=sys.stderr)
@@ -111,7 +112,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    client = BacktestClient(API_URL)
+    client = BacktestClient(settings.API_URL)
     client.health()
     record = client.get_job(args.job_id)
 
@@ -143,7 +144,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_cancel(args: argparse.Namespace) -> int:
-    client = BacktestClient(API_URL)
+    client = BacktestClient(settings.API_URL)
     client.health()
     outcome = client.cancel(args.job_id)
     print(f"  job {args.job_id} {outcome}", file=sys.stderr)
@@ -151,8 +152,8 @@ def cmd_cancel(args: argparse.Namespace) -> int:
 
 
 def cmd_health(args: argparse.Namespace) -> int:
-    BacktestClient(API_URL).health()
-    print(f"  backtesting service is reachable at {API_URL}", file=sys.stderr)
+    BacktestClient(settings.API_URL).health()
+    print(f"  backtesting service is reachable at {settings.API_URL}", file=sys.stderr)
     return 0
 
 

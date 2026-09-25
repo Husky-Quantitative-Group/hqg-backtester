@@ -2,32 +2,26 @@
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any, Callable
 
 import httpx
 
-# TODO: replace with the real School of Business VM hostname before release.
-DEFAULT_API_URL = "http://hqg-vm.business.uconn.edu:8005"
+from .settings import settings
 
-# HQG_API_URL is a development override for pointing at a local service; it is
-# not documented for researchers.
-API_URL = (os.environ.get("HQG_API_URL", "").strip() or DEFAULT_API_URL).rstrip("/")
-
+# A health check should fail fast; the other calls get the configured budget.
 HEALTH_TIMEOUT = 3.0
-SUBMIT_TIMEOUT = 30.0
-POLL_TIMEOUT = 15.0
+SUBMIT_TIMEOUT = settings.REQUEST_TIMEOUT
+POLL_TIMEOUT = settings.REQUEST_TIMEOUT
 
 # Status polls count against the service's per-IP rate limit alongside every
 # other request (RATE_LIMIT_PER_MINUTE=60), so polling every second would
 # exhaust a researcher's budget partway through their own backtest. Poll
-# quickly only for the first few seconds, then settle down.
+# quickly only for the first few seconds, then settle down to the configured
+# interval.
 FAST_POLL_INTERVAL = 2.0
-SLOW_POLL_INTERVAL = 5.0
+SLOW_POLL_INTERVAL = settings.POLL_INTERVAL
 FAST_POLL_WINDOW = 10.0
-
-MAX_RETRY_AFTER = 60.0
 
 
 def _retry_after(response: httpx.Response) -> float:
@@ -96,7 +90,7 @@ class BacktestClient:
 
             if response.status_code == 429:
                 # Polls share the per-IP rate limit; wait it out and try again.
-                time.sleep(min(_retry_after(response), MAX_RETRY_AFTER))
+                time.sleep(min(_retry_after(response), settings.MAX_RETRY_AFTER))
                 continue
             if response.status_code == 404:
                 return None
