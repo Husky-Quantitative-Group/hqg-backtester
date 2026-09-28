@@ -16,7 +16,7 @@ from hqg_algorithms import validate_strategy
 from . import __version__
 from .api import BacktestClient
 from .auth import load_token, save_token
-from .render import render_logs, render_result, render_validation_errors
+from .render import render_logs, render_result, render_validation_errors, render_equity_graph
 from .settings import HQG_HOME, settings
 
 
@@ -101,8 +101,12 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     summary = render_result(result, path.name, elapsed)
     logs: list[str] = record.get("logs") or []
+    candles = result.get("candles", [])
 
     print(summary)
+    # Equity graph appears after metrics, before logs
+    if candles:
+        print(render_equity_graph(candles))
     if args.verbose and logs:
         print(render_logs(logs))
 

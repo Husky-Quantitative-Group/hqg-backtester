@@ -1,7 +1,8 @@
 """Terminal formatting for backtest results."""
 
 from __future__ import annotations
-
+import asciichartpy
+from datetime import datetime
 from typing import Any
 
 _LEFT_INDENT = 4
@@ -122,6 +123,40 @@ def render_logs(logs: list[str]) -> str:
         return ""
     body = "\n".join(f"    {line}" for line in logs)
     return f"  Logs\n{body}\n"
+
+
+def render_equity_graph(candles: list[dict]) -> str:
+    """Render ASCII equity curve from candle data."""
+    if not candles:
+        return ""
+
+    # Extract close prices as equity curve
+    closes = [c["close"] for c in candles]
+    label_width = max(len(f"{min(closes):,.0f}"), len(f"{max(closes):,.0f}"))
+
+    # Build plot with asciichartpy
+    config = {
+        "height": 12,
+        "format": f"{{:>{label_width},.0f}}",
+    }
+
+    plot_str = asciichartpy.plot(closes, config)
+
+    # Format with header and indentation (matching existing pattern)
+    lines = ["", "  Equity Graph", ""]
+    for line in plot_str.split("\n"):
+        lines.append(f"    {line}")
+
+    # x axis: plot body starts after the label and tick columns asciichartpy reserves
+    width = len(closes)
+    gutter = " " * (label_width + 1)
+    first = datetime.fromtimestamp(candles[0]["time"]).strftime("%Y-%m-%d")
+    last = datetime.fromtimestamp(candles[-1]["time"]).strftime("%Y-%m-%d")
+    lines.append(f"    {gutter}└{'─' * width}")
+    lines.append(f"    {gutter} {first} {last:>{max(width - len(first) - 1, 0)}}")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
 def render_validation_errors(errors: list[str], source_name: str) -> str:
