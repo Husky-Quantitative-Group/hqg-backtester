@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from getpass import getpass
 from pathlib import Path
 from typing import Any
@@ -15,16 +15,16 @@ from hqg_algorithms import validate_strategy
 
 from . import __version__
 from .api import BacktestClient
-from .auth import CREDENTIALS_PATH, clear_token, load_token, save_token
+from .auth import load_token, save_token
 from .render import render_logs, render_result, render_validation_errors
-from .settings import settings
+from .settings import HQG_HOME, settings
 
 
-def _client() -> BacktestClient:
+def NewClient() -> BacktestClient:
     """Build a client carrying whatever credentials the researcher has."""
     return BacktestClient(settings.API_URL, load_token())
 
-def _read_strategy(path: Path) -> str:
+def read_strategy(path: Path) -> str:
     if not path.exists():
         raise ValueError(f"No such file: {path}")
     if path.is_dir():
@@ -42,7 +42,7 @@ def _parse_date(value: str, flag: str) -> datetime:
         raise ValueError(f"{flag} must be a date in YYYY-MM-DD form, got {value!r}") from None
 
 
-def _build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str, Any]:
+def build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str, Any]:
     start = _parse_date(args.start, "--start")
     end = _parse_date(args.end, "--end")
     if end <= start:
@@ -62,7 +62,7 @@ def _build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str
 
 def cmd_run(args: argparse.Namespace) -> int:
     path = Path(args.strategy)
-    source = _read_strategy(path)
+    source = read_strategy(path)
     name = args.name or path.stem
 
     errors = validate_strategy(source)
@@ -70,16 +70,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(render_validation_errors(errors, path.name), file=sys.stderr)
         return 2
 
-    payload = _build_payload(args, source, name)
+    payload = build_payload(args, source, name)
 
-    client = _client()
+    client = NewClient()
     client.health()
     job_id = client.submit(payload)
     print(f"  job {job_id}", file=sys.stderr)
-
-    if args.no_wait:
-        print("  submitted; check it with: hqg status " + job_id, file=sys.stderr)
-        return 0
 
     started = time.monotonic()
     try:
@@ -106,92 +102,41 @@ def cmd_run(args: argparse.Namespace) -> int:
     summary = render_result(result, path.name, elapsed)
     logs: list[str] = record.get("logs") or []
 
+    print(summary)
+    if args.verbose and logs:
+        print(render_logs(logs))
+
     if args.json:
-        # Raw response on stdout for piping; summary stays on stderr.
-        print(summary, file=sys.stderr)
-        print(json.dumps(result, indent=2))
-    else:
-        print(summary)
-        if args.verbose and logs:
-            print(render_logs(logs))
+        log_dir = HQG_HOME / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        out = log_dir / f"{name}-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.json"
+        out.write_text(json.dumps(result, indent=2), encoding="utf-8")
+        print(f"  saved to {out}", file=sys.stderr)
 
     return 0
-
-
-def cmd_status(args: argparse.Namespace) -> int:
-    client = _client()
-    client.health()
-    record = client.get_job(args.job_id)
-
-    if record is None:
-        raise RuntimeError(
-            f"Job {args.job_id} no longer exists.\n"
-            "The service keeps job state in memory; it may have restarted."
-        )
-
-    status = record.get("status", "UNKNOWN")
-    print(f"  {args.job_id} {status.lower()}", file=sys.stderr)
-
-    if status != "COMPLETED":
-        if status in ("FAILED", "CANCELLED"):
-            print(f"  {record.get('error') or 'did not complete'}", file=sys.stderr)
-            return 1
-        return 0
-
-    result = record.get("result") or {}
-    if args.json:
-        print(json.dumps(result, indent=2))
-    else:
-        params = result.get("parameters", {})
-        print(render_result(result, params.get("name", args.job_id), 0.0))
-        logs: list[str] = record.get("logs") or []
-        if args.verbose and logs:
-            print(render_logs(logs))
-    return 0
-
-
-def cmd_cancel(args: argparse.Namespace) -> int:
-    client = _client()
-    client.health()
-    outcome = client.cancel(args.job_id)
-    print(f"  job {args.job_id} {outcome}", file=sys.stderr)
-    return 0
-
 
 def cmd_health(args: argparse.Namespace) -> int:
-    _client().health()
+    NewClient().health()
     print(f"  backtesting service is reachable at {settings.API_URL}", file=sys.stderr)
     return 0
 
-
 def cmd_login(args: argparse.Namespace) -> int:
-    token = args.token
-    if not token:
-        # getpass keeps the token off the screen and out of shell history.
-        # Fall back to a plain read when stdin is a pipe, so `hqg login < f` works.
-        if sys.stdin.isatty():
-            token = getpass("  paste your dashboard token: ")
-        else:
-            token = sys.stdin.readline()
+    # paste in by hand
+    if sys.stdin.isatty():
+        token = getpass("  paste your dashboard token: ")
+    # pipe in to terminal
+    else:
+        token = sys.stdin.readline()
 
     path = save_token(token)
     print(f"  saved to {path}", file=sys.stderr)
-
-    # Prove the token works now rather than at the end of someone's first run.
-    _client().health()
+    
+    NewClient().health()
     print(f"  signed in to {settings.API_URL}", file=sys.stderr)
     return 0
 
 
-def cmd_logout(args: argparse.Namespace) -> int:
-    if clear_token():
-        print(f"  removed {CREDENTIALS_PATH}", file=sys.stderr)
-    else:
-        print("  not signed in", file=sys.stderr)
-    return 0
-
-
-def _build_parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hqg",
         description="Run backtests against the HQG backtesting service.",
@@ -207,7 +152,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--capital", type=float, default=10000.0, help="starting capital (default: 10000)"
     )
     run.add_argument("--name", help="name for this run (default: the file name)")
-    run.add_argument("--json", action="store_true", help="print the raw result to stdout")
+    run.add_argument("--json", action="store_true", help="save the raw result to ~/.hqg/logs")
     run.add_argument("--verbose", action="store_true", help="include strategy log output")
     run.add_argument(
         "--timeout",
@@ -215,40 +160,22 @@ def _build_parser() -> argparse.ArgumentParser:
         default=600.0,
         help="seconds to wait for the result (default: 600)",
     )
-    run.add_argument("--no-wait", action="store_true", help="submit and exit without waiting")
     run.set_defaults(func=cmd_run)
-
-    status = subparsers.add_parser("status", help="check a previously submitted backtest")
-    status.add_argument("job_id")
-    status.add_argument("--json", action="store_true", help="print the raw result to stdout")
-    status.add_argument("--verbose", action="store_true", help="include strategy log output")
-    status.set_defaults(func=cmd_status)
-
-    cancel = subparsers.add_parser("cancel", help="cancel a queued backtest")
-    cancel.add_argument("job_id")
-    cancel.set_defaults(func=cmd_cancel)
 
     health = subparsers.add_parser("health", help="check that the service is reachable")
     health.set_defaults(func=cmd_health)
 
     login = subparsers.add_parser("login", help="save your dashboard token")
-    login.add_argument(
-        "--token",
-        help="the token itself (default: prompt, so it stays out of shell history)",
-    )
     login.set_defaults(func=cmd_login)
-
-    logout = subparsers.add_parser("logout", help="forget the saved token")
-    logout.set_defaults(func=cmd_logout)
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
+    args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except ValueError as exc:        # the researcher's input was wrong
+    except ValueError as exc:        # input was wrong
         print(f"\n  {exc}\n", file=sys.stderr)
         return 2
     except RuntimeError as exc:      # the run or the service failed
