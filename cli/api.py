@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import httpx
 
+from .auth import COOKIE_NAME, LOGIN_HINT
 from .settings import settings
 
 # A health check should fail fast; the other calls get the configured budget.
@@ -34,19 +35,34 @@ def _retry_after(response: httpx.Response) -> float:
 class BacktestClient:
     """Thin wrapper over the service's job API."""
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, token: str | None = None):
         self.base_url = base_url.rstrip("/")
-        self._http = httpx.Client()
+        # hqg-platform authenticates proxied requests by reading the dashboard's
+        # `hqg_auth_token` cookie, so the client presents the same cookie. A
+        # local service with no auth middleware simply ignores it.
+        cookies = {COOKIE_NAME: token} if token else None
+        self._http = httpx.Client(cookies=cookies)
 
-    def health(self) -> None:
-        """Confirm the service is reachable."""
+    def _send(self, method: str, path: str, timeout: float, **kwargs: Any) -> httpx.Response:
+        """Make one request, mapping transport failures and 401s to clear errors."""
         try:
-            response = self._http.get(f"{self.base_url}/health", timeout=HEALTH_TIMEOUT)
+            response = self._http.request(
+                method, f"{self.base_url}{path}", timeout=timeout, **kwargs
+            )
         except httpx.RequestError as exc:
             raise RuntimeError(
                 f"Could not reach the backtesting service at {self.base_url}: {exc}"
             ) from exc
 
+        # The proxy rejects the whole request before it reaches the backtester,
+        # so every endpoint can answer 401 regardless of what it was asked.
+        if response.status_code == 401:
+            raise RuntimeError(LOGIN_HINT)
+        return response
+
+    def health(self) -> None:
+        """Confirm the service is reachable."""
+        response = self._send("GET", "/health", HEALTH_TIMEOUT)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Health check returned HTTP {response.status_code}"
@@ -54,14 +70,7 @@ class BacktestClient:
 
     def submit(self, payload: dict[str, Any]) -> str:
         """Enqueue a backtest and return its job id."""
-        try:
-            response = self._http.post(
-                f"{self.base_url}/api/v1/backtest", json=payload, timeout=SUBMIT_TIMEOUT
-            )
-        except httpx.RequestError as exc:
-            raise RuntimeError(
-                f"Could not reach the backtesting service at {self.base_url}: {exc}"
-            ) from exc
+        response = self._send("POST", "/api/v1/backtest", SUBMIT_TIMEOUT, json=payload)
 
         if response.status_code == 429:
             raise RuntimeError(
@@ -79,14 +88,7 @@ class BacktestClient:
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         """Return the job record, or None if the service has no such job."""
         while True:
-            try:
-                response = self._http.get(
-                    f"{self.base_url}/api/v1/backtest/{job_id}", timeout=POLL_TIMEOUT
-                )
-            except httpx.RequestError as exc:
-                raise RuntimeError(
-                    f"Could not reach the backtesting service at {self.base_url}: {exc}"
-                ) from exc
+            response = self._send("GET", f"/api/v1/backtest/{job_id}", POLL_TIMEOUT)
 
             if response.status_code == 429:
                 # Polls share the per-IP rate limit; wait it out and try again.
@@ -100,14 +102,7 @@ class BacktestClient:
 
     def cancel(self, job_id: str) -> str:
         """Ask the service to cancel a job. Returns a description of what happened."""
-        try:
-            response = self._http.delete(
-                f"{self.base_url}/api/v1/backtest/{job_id}", timeout=POLL_TIMEOUT
-            )
-        except httpx.RequestError as exc:
-            raise RuntimeError(
-                f"Could not reach the backtesting service at {self.base_url}: {exc}"
-            ) from exc
+        response = self._send("DELETE", f"/api/v1/backtest/{job_id}", POLL_TIMEOUT)
 
         if response.status_code == 200:
             return "cancelled"

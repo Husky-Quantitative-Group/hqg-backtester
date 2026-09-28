@@ -7,6 +7,7 @@ import json
 import sys
 import time
 from datetime import datetime
+from getpass import getpass
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,14 @@ from hqg_algorithms import validate_strategy
 
 from . import __version__
 from .api import BacktestClient
+from .auth import CREDENTIALS_PATH, clear_token, load_token, save_token
 from .render import render_logs, render_result, render_validation_errors
 from .settings import settings
+
+
+def _client() -> BacktestClient:
+    """Build a client carrying whatever credentials the researcher has."""
+    return BacktestClient(settings.API_URL, load_token())
 
 def _read_strategy(path: Path) -> str:
     if not path.exists():
@@ -65,7 +72,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     payload = _build_payload(args, source, name)
 
-    client = BacktestClient(settings.API_URL)
+    client = _client()
     client.health()
     job_id = client.submit(payload)
     print(f"  job {job_id}", file=sys.stderr)
@@ -112,7 +119,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    client = BacktestClient(settings.API_URL)
+    client = _client()
     client.health()
     record = client.get_job(args.job_id)
 
@@ -144,7 +151,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_cancel(args: argparse.Namespace) -> int:
-    client = BacktestClient(settings.API_URL)
+    client = _client()
     client.health()
     outcome = client.cancel(args.job_id)
     print(f"  job {args.job_id} {outcome}", file=sys.stderr)
@@ -152,8 +159,35 @@ def cmd_cancel(args: argparse.Namespace) -> int:
 
 
 def cmd_health(args: argparse.Namespace) -> int:
-    BacktestClient(settings.API_URL).health()
+    _client().health()
     print(f"  backtesting service is reachable at {settings.API_URL}", file=sys.stderr)
+    return 0
+
+
+def cmd_login(args: argparse.Namespace) -> int:
+    token = args.token
+    if not token:
+        # getpass keeps the token off the screen and out of shell history.
+        # Fall back to a plain read when stdin is a pipe, so `hqg login < f` works.
+        if sys.stdin.isatty():
+            token = getpass("  paste your dashboard token: ")
+        else:
+            token = sys.stdin.readline()
+
+    path = save_token(token)
+    print(f"  saved to {path}", file=sys.stderr)
+
+    # Prove the token works now rather than at the end of someone's first run.
+    _client().health()
+    print(f"  signed in to {settings.API_URL}", file=sys.stderr)
+    return 0
+
+
+def cmd_logout(args: argparse.Namespace) -> int:
+    if clear_token():
+        print(f"  removed {CREDENTIALS_PATH}", file=sys.stderr)
+    else:
+        print("  not signed in", file=sys.stderr)
     return 0
 
 
@@ -196,6 +230,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     health = subparsers.add_parser("health", help="check that the service is reachable")
     health.set_defaults(func=cmd_health)
+
+    login = subparsers.add_parser("login", help="save your dashboard token")
+    login.add_argument(
+        "--token",
+        help="the token itself (default: prompt, so it stays out of shell history)",
+    )
+    login.set_defaults(func=cmd_login)
+
+    logout = subparsers.add_parser("logout", help="forget the saved token")
+    logout.set_defaults(func=cmd_logout)
 
     return parser
 

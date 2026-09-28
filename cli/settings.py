@@ -9,10 +9,11 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-# TODO: confirm the externally reachable host and port before release. The
-# service listens on 8005, but docker-compose binds it to 127.0.0.1, so the
-# VM needs a reverse proxy (or a wider binding) for this URL to resolve.
-DEFAULT_API_URL = "http://L1BARCVDAB13OT1.business.uconn.edu:8005"
+# Researchers reach the backtester through hqg-platform, which proxies
+# /backtester/* to the service and strips the prefix. The backtester container
+# is never exposed directly: it binds 127.0.0.1 on the VM and is reachable only
+# from the shared `hqg_network` as http://hqg-backtester:8005.
+DEFAULT_API_URL = "https://platform.uconnquant.com/backtester"
 
 
 def _env(name: str, default: float) -> float:
@@ -24,8 +25,8 @@ def _env(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
-    # HQG_API_URL is a development override for pointing at a local service;
-    # it is not documented for researchers.
+    # HQG_API_URL points the client somewhere other than the deployed platform,
+    # typically a local `docker compose up` on http://localhost:8005.
     API_URL: str = field(
         default_factory=lambda: (
             os.environ.get("HQG_API_URL", "").strip() or DEFAULT_API_URL
