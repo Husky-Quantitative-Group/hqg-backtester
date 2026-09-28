@@ -1,10 +1,8 @@
-"""Terminal formatting for backtest results. Plain text, no dependencies."""
+"""Terminal formatting for backtest results."""
 
 from __future__ import annotations
 
 from typing import Any
-
-DASH = "—"
 
 _LEFT_INDENT = 4
 _LABEL_W = 18
@@ -15,9 +13,9 @@ _HEADER_INDENT = 2
 
 
 def _pct(value: float | None, signed: bool = True, places: int = 1) -> str:
-    """Format a decimal fraction as a percentage. The service returns 0.834 for 83.4%."""
+    """Format a decimal fraction as a percentage."""
     if value is None:
-        return DASH
+        return "—"
     scaled = value * 100.0
     sign = "+" if signed and scaled >= 0 else ""
     return f"{sign}{scaled:.{places}f}%"
@@ -25,13 +23,13 @@ def _pct(value: float | None, signed: bool = True, places: int = 1) -> str:
 
 def _ratio(value: float | None, places: int = 2) -> str:
     if value is None:
-        return DASH
+        return "—"
     return f"{value:.{places}f}"
 
 
 def _money(value: float | None, signed: bool = False) -> str:
     if value is None:
-        return DASH
+        return "—"
     if value < 0:
         return f"-${abs(value):,.0f}"
     return f"{'+' if signed else ''}${value:,.0f}"
@@ -53,7 +51,6 @@ def _row(l_label: str, l_value: str, r_label: str = "", r_value: str = "") -> st
 
 
 def _date(value: Any) -> str:
-    """The service returns ISO datetimes; researchers think in dates."""
     text = str(value)
     return text.split("T")[0] if "T" in text else text
 
@@ -72,9 +69,8 @@ def render_result(result: dict[str, Any], source_name: str, elapsed: float) -> s
         ]
     )
 
-    # max_drawdown arrives as a positive magnitude; show it as the loss it is.
     drawdown = metrics.get("max_drawdown")
-    drawdown_display = _pct(-abs(drawdown)) if drawdown is not None else DASH
+    drawdown_display = _pct(-abs(drawdown)) if drawdown is not None else "—"
 
     lines = [
         "",
@@ -97,7 +93,7 @@ def render_result(result: dict[str, Any], source_name: str, elapsed: float) -> s
             "Final equity", _money(metrics.get("final_portfolio_value")),
             "CVaR 95%", _pct(metrics.get("cvar_95")),
         ),
-        _row("", "", "Drawdown (bars)", str(metrics.get("max_drawdown_duration", DASH))),
+        _row("", "", "Drawdown (bars)", str(metrics.get("max_drawdown_duration", "—"))),
         "",
         _headers("Ratios", "Market"),
         _row(
@@ -110,7 +106,7 @@ def render_result(result: dict[str, Any], source_name: str, elapsed: float) -> s
         ),
         _row(
             "Calmar", _ratio(metrics.get("calmar")),
-            "Orders", str(metrics.get("total_orders", DASH)),
+            "Orders", str(metrics.get("total_orders", "—")),
         ),
         _row(
             "PSR", _ratio(metrics.get("psr")),
