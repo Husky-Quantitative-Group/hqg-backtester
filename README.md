@@ -14,116 +14,42 @@ The primary supported path is the HTTP API:
 6. Validates execution output
 7. Computes performance metrics and returns a frontend-shaped response
 
-## For Researchers: the `hqg` CLI
-
-Researchers do not run this repo. They install a small client package that talks
-to the hosted service over HTTP, and never see Docker, JSON or the API.
+## `hqg` CLI
 
 ```bash
-pip install hqg-backtester     # pulls only httpx + hqg-algorithms
-hqg health                     # confirm the service is reachable
+pip install hqg-backtester                                        # 1. install
+hqg login                                                         # 2. sign in
+hqg run strategy.py --start 2023-01-01 --end 2024-01-01           # 3. backtest
 ```
 
-Write a strategy as an ordinary Python file:
+### Authentication
 
-```python
-# strategy.py
-from hqg_algorithms import Strategy, Cadence, BarSize, Slice, PortfolioView, Signal, TargetWeights, Hold
+The service only accepts requests from signed-in members, so `hqg login` is a
+required step before your first run. 
 
-class MyStrategy(Strategy):
-    universe = ["SPY", "TLT"]
-    cadence = Cadence(bar_size=BarSize.DAILY)
+1. Sign in to the dashboard at `https://dashboard.uconnquant.com`.
+2. Copy the `hqg_auth_token` cookie (DevTools → Application → Cookies).
+3. Run `hqg login` and paste it at the prompt.
 
-    def __init__(self):
-        self.isInvested = False
-
-    def on_data(self, data: Slice, portfolio: PortfolioView) -> Signal:
-        if not self.isInvested:
-            self.isInvested = True
-            return TargetWeights({"SPY": 0.6, "TLT": 0.4})
-        return Hold()
-```
-
-Run it:
-
-```bash
-hqg run strategy.py --start 2023-01-01 --end 2024-01-01 --capital 100000
-```
-
-```
-  job 87f54c17-4513-4da8-9449-be5a12bd7a75
-  running
-  completed
-
-  strategy.py · 2023-01-01 → 2024-01-01 · $100,000 · 4.1s
-
-  Return                           Risk
-    Total                 +16.4%   Max drawdown          -12.3%
-    Annualized            +16.6%   Ann. volatility        11.2%
-    Net profit          +$16,363   VaR 95%                -1.1%
-    Final equity        $116,363   CVaR 95%               -1.4%
-                                   Drawdown (bars)          102
-
-  Ratios                           Market
-    Sharpe                  0.97   Alpha                  -2.1%
-    Sortino                 1.44   Beta                    0.68
-    Calmar                  1.35   Orders                     2
-    PSR                     0.32   Volume              $100,000
-```
+The token is saved to `~/.hqg/credentials` (owner-readable only) and lasts 24 hours.
 
 ### Commands
 
 | Command | Purpose |
 | --- | --- |
-| `hqg run STRATEGY --start D --end D` | run a backtest and wait for the result |
-| `hqg run ... --json` | raw result JSON on stdout, summary on stderr |
-| `hqg run ... --no-wait` | submit and exit, printing the job id |
-| `hqg run ... --verbose` | also print the strategy's `self.log()` output |
-| `hqg status JOB_ID` | fetch a run submitted earlier |
-| `hqg cancel JOB_ID` | cancel a job that is still `PENDING` |
+| `hqg login` | save your dashboard token, then verify it works |
+| `hqg run STRATEGY --start YYYY-MM-DD --end YYYY-MM-DD` | run a backtest and wait for the result |
 | `hqg health` | check that the service is reachable |
 
-`--start` and `--end` are required and must be `YYYY-MM-DD`. `--capital`
-defaults to 10000. Ctrl-C during a run cancels the job rather than orphaning it.
+Options for `hqg run`:
 
-Exit codes: `0` success, `1` the run or service failed, `2` bad input
-(unparseable dates, missing file, invalid strategy), `130` interrupted.
-
-### Gotchas
-
-- **Do not call `print()` in a strategy.** The sandbox writes its result to
-  stdout, so a stray `print()` corrupts it and the job fails with a JSON parse
-  error. Use `self.log()`, which surfaces under `hqg run --verbose`.
-- Strategies receive only the current bar. Keep your own rolling window on
-  `self` (see the `SimpleSMA` example below) — there is no history API.
-- Job state is in memory. If the service restarts, `hqg status` returns
-  "no longer exists".
-
-### Client configuration
-
-`hqg` needs no config file. These environment variables override the defaults,
-and exist mainly for pointing the client at a local service:
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `HQG_API_URL` | the hosted VM | base URL of the backtesting service |
-| `HQG_REQUEST_TIMEOUT` | `30` | seconds per HTTP call |
-| `HQG_POLL_INTERVAL` | `5` | seconds between status polls |
-| `HQG_MAX_RETRY_AFTER` | `60` | cap on a `Retry-After` the service asks for |
-
-```bash
-HQG_API_URL=http://localhost:8005 hqg run strategy.py --start 2023-01-01 --end 2024-01-01
-```
-
-Polls share the service's per-IP rate limit (60/min), which is why the client
-backs off to `HQG_POLL_INTERVAL` rather than polling every second.
-
-## Current API Surface
-
-- `GET /health`
-- `POST /api/v1/backtest`
-
-Docker Compose exposes the API on `http://localhost:8005`.
+| Option | Purpose |
+| --- | --- |
+| `--capital` | starting capital (default 10000) |
+| `--name` | name for the run (default: the file name) |
+| `--verbose` | also print the strategy's `self.log()` output |
+| `--json` | save the raw result JSON to `~/.hqg/logs` |
+| `--timeout` | seconds to wait for the result (default 60) |
 
 ## Quick Start (Docker Compose)
 
