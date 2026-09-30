@@ -56,38 +56,8 @@ class Backtester:
         execution = strategy.cadence.execution
         trades = []
 
-        new_slices = dict()
-        
         if (self._add_random_noise):
-            for i, timestamp in enumerate(timestamps):
-
-                slice_obj = slices[timestamp]
-
-                open = self._get_open(slice_obj, universe)
-                high = self._get_high(slice_obj, universe)
-                low = self._get_low(slice_obj, universe)
-                close = self._get_close(slice_obj, universe)
-                volume = self._get_volume(slice_obj, universe)
-
-                self._add_noise(open, universe, Noise.UNIFORM)
-                self._add_noise(high, universe, Noise.UNIFORM)
-                self._add_noise(low, universe, Noise.UNIFORM)
-                self._add_noise(close, universe, Noise.UNIFORM)
-                self._add_noise(volume, universe, Noise.UNIFORM)
-
-                bars = {}
-                for s in universe:
-                    bars[s] = Bar(
-                        open=open[s],
-                        high=high[s],
-                        low=low[s],
-                        close=close[s],
-                        volume=volume[s]
-                    )
-
-                new_slices[timestamp] = Slice(bars)
-
-            slices = new_slices
+            slices = self._layer_noise_on_slices(timestamps, slices, universe, Noise.NORMAL)
 
         for i, timestamp in enumerate(timestamps):
             slice_obj = slices[timestamp]
@@ -186,7 +156,7 @@ class Backtester:
         return prices
 
     def _add_noise(self, prices: Dict[str, float], symbols: List[str], noise: Noise) -> Dict[str, float]:
-        """ Adds random noise to prices and returns the new prices """
+        """ Returns new price data with noise added according to the input distribution. """
         new_prices = {}
         for symbol in symbols:
             match (noise):
@@ -195,11 +165,44 @@ class Backtester:
                 case Noise.NORMAL:
                     price = prices[symbol] + random.normalvariate(mu=prices[symbol], sigma=prices[symbol]*0.05)
 
-            if price is not None:
-                new_prices[symbol] = price
+            if price is None or price < 0:
+                new_prices[symbol] = prices[symbol]
 
         return new_prices
 
+    def _layer_noise_on_slices(self, timestamps: list, slices: Dict, universe: list, noise: Noise) -> Dict:
+        """ Computes new slices for every timestamp with noise"""
+        new_slices = dict()
+
+        for i, timestamp in enumerate(timestamps):
+
+            slice_obj = slices[timestamp]
+
+            open = self._get_open(slice_obj, universe)
+            high = self._get_high(slice_obj, universe)
+            low = self._get_low(slice_obj, universe)
+            close = self._get_close(slice_obj, universe)
+            volume = self._get_volume(slice_obj, universe)
+
+            self._add_noise(open, universe, noise)
+            self._add_noise(high, universe, noise)
+            self._add_noise(low, universe, noise)
+            self._add_noise(close, universe, noise)
+            self._add_noise(volume, universe, noise)
+
+            bars = {}
+            for s in universe:
+                bars[s] = Bar(
+                    open=open[s],
+                    high=high[s],
+                    low=low[s],
+                    close=close[s],
+                    volume=volume[s]
+                )
+
+            new_slices[timestamp] = Slice(bars)
+
+        return new_slices
     ###############################################################################
 
     # NOTE: this function currently fails, as RawExecutionResult now requires more fields

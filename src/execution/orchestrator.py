@@ -86,7 +86,7 @@ class Orchestrator:
                     market_data=market_data_json,
                     bar_size=cadence.bar_size,
                     config_params=request.config_params,
-                    add_random_noise=True,
+                    add_random_noise=False,
                 )
                 
                 # Execute our payload
