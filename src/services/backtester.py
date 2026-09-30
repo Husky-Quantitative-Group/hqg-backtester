@@ -1,14 +1,28 @@
 from typing import List, Dict, Optional
-from hqg_algorithms import Strategy, Slice, PortfolioView, TargetWeights, Hold, Liquidate, ExecutionTiming
+from hqg_algorithms import Strategy, Slice, PortfolioView, TargetWeights, Hold, Liquidate, ExecutionTiming, Bar
 from ..models.portfolio import Portfolio
 from ..models.response import Trade
 from ..models.recorder import PortfolioRecorder
 from ..services.data_provider.base_provider import BaseDataProvider
 
+from enum import Enum
+import random
+
+class Noise(Enum):
+    # 1-indexed so there aren't issues with 0 being evaluated
+    # as false in an if statement.
+    UNIFORM = 1
+    NORMAL = 2
+
 class Backtester:
     
-    def __init__(self, data_provider: Optional[BaseDataProvider] = None):
+    def __init__(
+        self,
+        data_provider: Optional[BaseDataProvider] = None,
+        add_random_noise: bool = False
+    ) -> None:
         self.data_provider = data_provider
+        self._add_random_noise = add_random_noise
     
     # TODO: add implementation for additional features: param / data noise, dropout, etc. 
     #async def run_advanced():
@@ -41,6 +55,39 @@ class Backtester:
         universe = strategy.universe
         execution = strategy.cadence.execution
         trades = []
+
+        new_slices = dict()
+        
+        if (self._add_random_noise):
+            for i, timestamp in enumerate(timestamps):
+
+                slice_obj = slices[timestamp]
+
+                open = self._get_open(slice_obj, universe)
+                high = self._get_high(slice_obj, universe)
+                low = self._get_low(slice_obj, universe)
+                close = self._get_close(slice_obj, universe)
+                volume = self._get_volume(slice_obj, universe)
+
+                self._add_noise(open, universe, Noise.UNIFORM)
+                self._add_noise(high, universe, Noise.UNIFORM)
+                self._add_noise(low, universe, Noise.UNIFORM)
+                self._add_noise(close, universe, Noise.UNIFORM)
+                self._add_noise(volume, universe, Noise.UNIFORM)
+
+                bars = {}
+                for s in universe:
+                    bars[s] = Bar(
+                        open=open[s],
+                        high=high[s],
+                        low=low[s],
+                        close=close[s],
+                        volume=volume[s]
+                    )
+
+                new_slices[timestamp] = Slice(bars)
+
+            slices = new_slices
 
         for i, timestamp in enumerate(timestamps):
             slice_obj = slices[timestamp]
@@ -104,7 +151,6 @@ class Backtester:
             if price is not None:
                 prices[symbol] = price
         return prices
-
     def _get_open(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
         """Extract open prices from slice for given symbols."""
         prices = {}
@@ -114,6 +160,45 @@ class Backtester:
                 prices[symbol] = price
         return prices
     
+    def _get_high(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
+        """Extract open prices from slice for given symbols."""
+        prices = {}
+        for symbol in symbols:
+            price = slice_obj.high(symbol)
+            if price is not None:
+                prices[symbol] = price
+        return prices
+    def _get_low(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
+        """Extract open prices from slice for given symbols."""
+        prices = {}
+        for symbol in symbols:
+            price = slice_obj.low(symbol)
+            if price is not None:
+                prices[symbol] = price
+        return prices
+    def _get_volume(self, slice_obj: Slice, symbols: List[str]) -> Dict[str, float]:
+        """Extract open prices from slice for given symbols."""
+        prices = {}
+        for symbol in symbols:
+            price = slice_obj.volume(symbol)
+            if price is not None:
+                prices[symbol] = price
+        return prices
+
+    def _add_noise(self, prices: Dict[str, float], symbols: List[str], noise: Noise) -> Dict[str, float]:
+        """ Adds random noise to prices and returns the new prices """
+        new_prices = {}
+        for symbol in symbols:
+            match (noise):
+                case Noise.UNIFORM:
+                    price = prices[symbol] + random.uniform(prices[symbol] - prices[symbol]*0.05, prices[symbol] + prices[symbol]*0.05)
+                case Noise.NORMAL:
+                    price = prices[symbol] + random.normalvariate(mu=prices[symbol], sigma=prices[symbol]*0.05)
+
+            if price is not None:
+                new_prices[symbol] = price
+
+        return new_prices
 
     ###############################################################################
 

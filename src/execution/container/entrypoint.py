@@ -80,18 +80,10 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
     }
     """
     errors = BacktestRequestError()
-    backtester = Backtester()
 
     try:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
         data = json_to_dataframe(payload.market_data)
-
-        # Pre-build timestamp:Slice dict (avoid per-step MultiIndex slicing in loop)
-        slices, timestamps = precompute_slices(data)
-
-        # TODO: refactor w/ StrategyLoader (no write)
-        # Load strategy class
-        strategy_namespace = {}
 
         # Inject config module if config_params provided
         if payload.config_params:
@@ -100,6 +92,17 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             for key, value in payload.config_params.items():
                 setattr(config_module, key, value)
             sys.modules['config'] = config_module
+
+        add_random_noise = payload.add_random_noise
+        backtester = Backtester(add_random_noise=add_random_noise)
+
+        # Pre-build timestamp:Slice dict (avoid per-step MultiIndex slicing in loop)
+        slices, timestamps = precompute_slices(data)
+
+        # TODO: refactor w/ StrategyLoader (no write)
+        # Load strategy class
+        strategy_namespace = {}
+
 
         exec(payload.strategy_code, strategy_namespace)
 
@@ -146,7 +149,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        errors.add(f"Strategy execution error: {str(e)}")
+        errors.add(f"Strategy execution error - {type(e).__name__}: {str(e)}")
         return {
             "orders": [],
             "equity_curve": {},

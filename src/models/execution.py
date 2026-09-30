@@ -13,6 +13,7 @@ class ExecutionPayload(BaseModel):
     initial_capital: float = Field(default=100000.0, description="Starting cash of Python strategy", gt=0)
     market_data: Dict[str, Any] = Field(..., description="Pre-fetched OHLC data")
     config_params: Optional[Dict[str, Any]] = Field(default=None, description="Config parameters to inject as 'config' module in sandbox")
+    add_random_noise: bool = False
 
 
 class RawExecutionResult(BaseModel):
