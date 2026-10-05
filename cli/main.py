@@ -57,6 +57,7 @@ def build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
         "initial_capital": args.capital,
+        "profile": args.profile,
     }
 
 
@@ -109,6 +110,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(render_equity_graph(candles))
     if args.verbose and logs:
         print(render_logs(logs))
+    if args.profile and result.get("profile"):
+        print(f"  Profile\n{result['profile']}")
 
     if args.json:
         log_dir = HQG_HOME / "logs"
@@ -158,6 +161,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--name", help="name for this run (default: the file name)")
     run.add_argument("--json", action="store_true", help="save the raw result to ~/.hqg/logs")
     run.add_argument("--verbose", action="store_true", help="include strategy log output")
+    run.add_argument(
+        "--profile", action="store_true", help="profile the backtest on the server (HQG_PROFILE)"
+    )
     run.add_argument(
         "--timeout",
         type=float,

@@ -89,7 +89,7 @@ class Orchestrator:
                 )
                 
                 # Execute our payload
-                raw_result = await asyncio.to_thread(self.executor.execute, payload)
+                raw_result = await asyncio.to_thread(self.executor.execute, payload, request.profile)
                 
                 if not raw_result.errors.is_empty():
                     raise ExecutionException(raw_result.errors)

@@ -54,6 +54,7 @@ class BacktestRequest(BaseModel):
     commission: Optional[float] = Field(default=0.0, ge=0, description="Commission per trade")
     slippage: Optional[float] = Field(default=0.0, ge=0, le=1.0, description="Slippage as percentage (0-1)")
     config_params: Optional[Dict[str, Any]] = Field(default=None, description="Optional config parameters injected into the sandbox as 'config' module")
+    profile: bool = Field(default=False, description="Enable cProfile inside the execution container (same as HQG_PROFILE=1)")
     errors: BacktestRequestError = Field(default_factory=BacktestRequestError, exclude=True)
 
     @field_validator('config_params')
