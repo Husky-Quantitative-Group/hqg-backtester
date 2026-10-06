@@ -40,7 +40,7 @@ class Scheduler:
 
         try:
             raw_result = await self._orchestrator.run(request)
-            response = build_backtest_response(job_id, request, raw_result, self._orchestrator.data_provider)
+            response = build_backtest_response(job_id, request, raw_result, self._orchestrator.securities_provider)
             for msg in raw_result.strategy_logs:
                 job_store.append_log(job_id, msg)
             await job_store.set_completed(job_id, response)

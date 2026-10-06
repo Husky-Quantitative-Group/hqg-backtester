@@ -6,7 +6,8 @@ from typing import Dict, Any
 from hqg_algorithms import extract_metadata
 
 from ..models.request import BacktestRequest, ValidationException, ExecutionException
-from ..services.data_provider.yf_provider import YFDataProvider
+from ..services.data_provider.datafeed_provider_alt import DataFeedAltProvider
+from ..services.data_provider.datafeed_provider_securities import DataFeedSecuritiesProvider
 from .executor import Executor, ExecutionPayload, RawExecutionResult
 from .output_validator import OutputValidator
 from .analysis import StaticAnalyzer
@@ -21,7 +22,8 @@ class Orchestrator:
     Flow:
         BacktestRequest
         → parse strategy (extract universe, dates, cadence)
-        → fetch market data (YFDataProvider w/ parquet cache)
+        → fetch market data (hqg-datafeed)
+        → fetch alt data (hqg-datafeed)
         → convert DataFrame → JSON
         → build ExecutionPayload
         → Executor (Docker container)
@@ -32,7 +34,8 @@ class Orchestrator:
     _semaphore = asyncio.Semaphore(13)  # 13 maximum backtests at a time (one for each member)
 
     def __init__(self):
-        self.data_provider = YFDataProvider()
+        self.securities_provider = DataFeedSecuritiesProvider()
+        self.alt_provider = DataFeedAltProvider()
         self.executor = Executor()
         self.output_validator = OutputValidator()
 
@@ -52,14 +55,19 @@ class Orchestrator:
                 # Parse strategy code to extract universe + cadence
                 strategy_metadata = extract_metadata(request.strategy_code)
                 universe, cadence = strategy_metadata.universe, strategy_metadata.cadence
+                alt_data = strategy_metadata.alt_data
 
-                logger.info(f"Parsed strategy: universe={universe}, bar_size={cadence.bar_size}")
+                logger.info(
+                    f"Parsed strategy: universe={universe}, "
+                    f"alt_data={alt_data}, bar_size={cadence.bar_size}"
+                )
             except ValueError as e:
                 request.errors.add(str(e))
                 raise ValidationException(request.errors)
             try:
+                # Securities Data Requests
                 data = await asyncio.to_thread(
-                    self.data_provider.get_data,
+                    self.securities_provider.get_data,
                     symbols=universe,
                     start_date=request.start_date,
                     end_date=request.end_date,
@@ -72,9 +80,20 @@ class Orchestrator:
                 logger.info(f"Fetched {len(data)} bars for {universe}")
 
                 # Convert DataFrame → JSON for container
-                
                 # TODO: Use Arrow IPC instead of JSON for faster serialization?
                 market_data_json = dataframe_to_json(data, universe)
+
+                # Alt Data Requests
+                alt_data_json: Dict[str, Any] = {}
+
+                if alt_data:
+                    alt_frame = await asyncio.to_thread(
+                        self.alt_provider.get_data,
+                        series=alt_data,
+                        start_date=request.start_date,
+                        end_date=request.end_date,
+                    )
+                    alt_data_json = alt_dataframe_to_json(alt_frame, alt_data)
 
                 # Build execution payload
                 payload = ExecutionPayload(
@@ -84,6 +103,7 @@ class Orchestrator:
                     end_date=request.end_date,
                     initial_capital=request.initial_capital,
                     market_data=market_data_json,
+                    alt_data=alt_data_json,
                     bar_size=cadence.bar_size,
                     config_params=request.config_params,
                 )
@@ -102,7 +122,6 @@ class Orchestrator:
             except ValueError as e:
                 request.errors.add(str(e))
                 raise ExecutionException(request.errors)
-
 
 def dataframe_to_json(data: pd.DataFrame, symbols: list[str]) -> Dict[str, Any]:
     """
@@ -126,3 +145,35 @@ def dataframe_to_json(data: pd.DataFrame, symbols: list[str]) -> Dict[str, Any]:
         market_data[symbol] = symbol_data
 
     return market_data
+
+
+def alt_dataframe_to_json(data: pd.DataFrame, series_ids: list[str]) -> Dict[str, Any]:
+    """
+    Convert raw alternative data to JSON for the execution payload.
+
+    Input:  DataFrame with MultiIndex columns (series_id, field) and
+            DatetimeIndex. The index may contain duplicates for revised series.
+    Output: {"FRED.GDP": {"date": [...], "value": [...], "available_at": [...]}}
+    """
+    alt_data: Dict[str, Any] = {}
+
+    if data.empty:
+        return {series_id: {"date": []} for series_id in series_ids}
+
+    for series_id in series_ids:
+        if not isinstance(data.columns, pd.MultiIndex) or series_id not in data.columns.get_level_values(0):
+            alt_data[series_id] = {"date": []}
+            continue
+
+        frame = data[series_id]
+        series_data: Dict[str, list] = {
+            "date": [None if pd.isna(ts) else ts.isoformat() for ts in frame.index]
+        }
+        for field in frame.columns:
+            series_data[str(field)] = [
+                None if pd.isna(v) else (v.isoformat() if hasattr(v, "isoformat") else v)
+                for v in frame[field]
+            ]
+        alt_data[series_id] = series_data
+
+    return alt_data
