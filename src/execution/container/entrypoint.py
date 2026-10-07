@@ -6,7 +6,8 @@ import io
 import os
 import pandas as pd
 from hqg_algorithms import Strategy, BarSize, Slice, Bar
-from typing import Dict, Any
+from types import MappingProxyType
+from typing import Dict, Any, Mapping
 from src.models.execution import ExecutionPayload, RawExecutionResult
 from src.models.portfolio import Portfolio
 from src.models.recorder import PortfolioRecorder
@@ -85,9 +86,11 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
     try:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
         data = json_to_dataframe(payload.market_data)
+        alt_frames = json_to_alt_frames(payload.alt_data)
+        alt_state = AltDataState(alt_frames)
 
         # Pre-build timestamp:Slice dict (avoid per-step MultiIndex slicing in loop)
-        slices, timestamps = precompute_slices(data)
+        slices, timestamps = precompute_slices(data, alt_state)
 
         # TODO: refactor w/ StrategyLoader (no write)
         # Load strategy class
@@ -194,10 +197,143 @@ def json_to_dataframe(market_data: Dict[str, Any]) -> pd.DataFrame:
 
     return formatted
 
-def precompute_slices(data: pd.DataFrame) -> tuple[Dict, list]:
+
+def json_to_alt_frames(alt_data: Dict[str, Any] | None) -> Dict[str, pd.DataFrame]:
+    """
+    Reconstruct per-series raw alternative data frames from the JSON payload.
+
+    No cross-series alignment is attempted, since revisions of different
+    series have no row-to-row correspondence.
+
+    Input: {"FRED.GDP": {"date": [...], "value": [...], "available_at": [...]}}
+    Output: {"FRED.GDP": DataFrame indexed by observation date}
+    """
+    frames = {}
+    if alt_data is None:
+        return frames
+
+    for series_id, data_dict in alt_data.items():
+        if not data_dict:
+            frames[series_id] = pd.DataFrame(columns=["value", "available_at"]).rename_axis("date")
+            continue
+
+        if "date" not in data_dict:
+            raise ValueError(f"Alt data payload for '{series_id}' is missing 'date'")
+
+        df = pd.DataFrame(data_dict)
+        df["date"] = pd.to_datetime(df["date"])
+        for column in df.columns:
+            if column != "date" and (str(column).endswith("_at") or str(column).endswith("_date")):
+                df[column] = pd.to_datetime(df[column])
+        frames[series_id] = df.set_index("date")
+
+    return frames
+
+
+_EMPTY_ALT_VIEW = MappingProxyType({})
+
+
+class AltDataState:
+    """
+    Point-in-time state machine for revision-tracked alternative data.
+
+    This is the only place that compares available_at against the simulated
+    clock. Slice receives already-filtered immutable snapshots.
+    """
+
+    def __init__(self, frames: Dict[str, pd.DataFrame]):
+        self._state: dict[str, dict[pd.Timestamp, float]] = {}
+        self._dirty: dict[str, bool] = {}
+        self._frozen: dict[str, Mapping[pd.Timestamp, float]] = {}
+        self._events: list[tuple[pd.Timestamp, str, pd.Timestamp, float]] = []
+        self._cursor = 0
+        self._clock: pd.Timestamp | None = None
+        self.changed_this_call = False
+
+        for series_id, frame in frames.items():
+            self._state[series_id] = {}
+            self._dirty[series_id] = False
+            self._frozen[series_id] = _EMPTY_ALT_VIEW
+
+            if frame.empty:
+                continue
+            if "available_at" not in frame.columns or "value" not in frame.columns:
+                raise ValueError(f"Alt data frame for '{series_id}' must include value and available_at")
+
+            for observation_date, row in frame.iterrows():
+                available_at = pd.Timestamp(row["available_at"])
+                if pd.isna(available_at):
+                    raise ValueError(
+                        f"Alt data frame for '{series_id}' has missing available_at "
+                        f"at observation {observation_date}"
+                    )
+                if pd.isna(row["value"]):
+                    raise ValueError(
+                        f"Alt data frame for '{series_id}' has missing value "
+                        f"at observation {observation_date}"
+                    )
+                self._events.append(
+                    (
+                        available_at,
+                        series_id,
+                        pd.Timestamp(observation_date),
+                        float(row["value"]),
+                    )
+                )
+
+        self._events.sort(key=lambda event: (event[0], event[1], event[2]))
+        self._series_ids = tuple(self._state)
+
+    def series_ids(self) -> tuple[str, ...]:
+        return self._series_ids
+
+    def advance_to(self, t: pd.Timestamp) -> None:
+        self.changed_this_call = False
+        clock = pd.Timestamp(t)
+        if self._clock is not None and clock < self._clock:
+            raise ValueError("AltDataState can only advance forward in time")
+        self._clock = clock
+
+        while self._cursor < len(self._events) and self._events[self._cursor][0] < clock:
+            available_at, series_id, observation_date, value = self._events[self._cursor]
+            if available_at > clock:
+                raise AssertionError(
+                    f"Leakage prevented: {series_id} observation {observation_date} "
+                    f"has available_at={available_at} > clock={clock}"
+                )
+            self._state[series_id][observation_date] = value
+            self._dirty[series_id] = True
+            self.changed_this_call = True
+            self._cursor += 1
+
+    def latest(self, series_id: str) -> float | None:
+        state = self._state.get(series_id)
+        if not state:
+            return None
+        return state[max(state)]
+
+    def snapshot(self, series_id: str) -> dict[pd.Timestamp, float]:
+        return dict(self._state.get(series_id, {}))
+
+    def snapshot_view(self, series_id: str) -> Mapping[pd.Timestamp, float]:
+        if series_id not in self._state:
+            return _EMPTY_ALT_VIEW
+        if self._dirty[series_id]:
+            self._frozen[series_id] = MappingProxyType(dict(self._state[series_id]))
+            self._dirty[series_id] = False
+        return self._frozen[series_id]
+
+
+def precompute_slices(data: pd.DataFrame, alt_state: AltDataState | None = None) -> tuple[Dict, list]:
     """
     Build a dictionary of timestamps: slices for backtest loop
     """
+    if not data.index.is_monotonic_increasing:
+        raise ValueError("Market data timestamps must be sorted")
+
+    if data.index.has_duplicates:
+        raise ValueError("Market data contains duplicate timestamps")
+
     timestamps = data.index.tolist()
     columns = data.columns.tolist()  # [(symbol, field), ...]; e.g. [('AAPL', 'close'), ...]
     values = data.values  # shape: (n_timestamps, n_columns)
@@ -208,6 +344,7 @@ def precompute_slices(data: pd.DataFrame) -> tuple[Dict, list]:
     col_index = {(s, f): j for j, (s, f) in enumerate(columns)}
 
     slices = {}
+    alt_history = None
     for i, ts in enumerate(timestamps):
         bars = {}
         for s in symbols:
@@ -218,7 +355,14 @@ def precompute_slices(data: pd.DataFrame) -> tuple[Dict, list]:
                 close=float(values[i, col_index[(s, "close")]]),
                 volume=float(values[i, col_index[(s, "volume")]]) if (s, "volume") in col_index else None,
             )
-        slices[ts] = Slice(bars)
+        if alt_state is not None:
+            alt_state.advance_to(ts)
+            if alt_history is None or alt_state.changed_this_call:
+                alt_history = {
+                    series_id: alt_state.snapshot_view(series_id)
+                    for series_id in alt_state.series_ids()
+                }
+        slices[ts] = Slice(bars, alt_history=alt_history)
 
     return slices, timestamps
 
