@@ -29,7 +29,7 @@ from src.services.data_provider.datafeed_provider_securities import DataFeedSecu
 @dataclass
 class FakeMarketData:
     securities: pd.DataFrame
-    alt_data: pd.DataFrame
+    alt_data: dict[str, pd.DataFrame]
 
 
 class FakeFeed:
@@ -48,12 +48,12 @@ class FakeFeed:
         )
         return FakeMarketData(
             securities=self.securities.copy(),
-            alt_data=pd.DataFrame(),
+            alt_data={},
         )
 
 
 class FakeAltFeed:
-    def __init__(self, alt_data: pd.DataFrame):
+    def __init__(self, alt_data: dict[str, pd.DataFrame]):
         self.alt_data = alt_data
         self.calls = []
 
@@ -68,7 +68,7 @@ class FakeAltFeed:
         )
         return FakeMarketData(
             securities=pd.DataFrame(),
-            alt_data=self.alt_data.copy(),
+            alt_data={series_id: frame.copy() for series_id, frame in self.alt_data.items()},
         )
 
 
@@ -96,21 +96,13 @@ def _securities_frame() -> pd.DataFrame:
 
 def _alt_frame() -> pd.DataFrame:
     index = pd.to_datetime(["2024-01-01", "2024-01-01"])
-    columns = pd.MultiIndex.from_tuples(
-        [
-            ("FRED.GDP", "value"),
-            ("FRED.GDP", "available_at"),
-        ],
-        names=["series_id", "field"],
-    )
     return pd.DataFrame(
-        [
-            [100.0, pd.Timestamp("2024-02-01")],
-            [101.0, pd.Timestamp("2024-03-01")],
-        ],
+        {
+            "value": [100.0, 101.0],
+            "available_at": [pd.Timestamp("2024-02-01"), pd.Timestamp("2024-03-01")],
+        },
         index=index,
-        columns=columns,
-    )
+    ).rename_axis("date")
 
 
 def _flat_securities_frame() -> pd.DataFrame:
@@ -243,7 +235,7 @@ def test_datafeed_provider_empty_symbol_slice_wipes_result(monkeypatch, tmp_path
 def test_alt_provider_uses_datafeed_get_data_for_alt_only():
     start = datetime(2024, 1, 1)
     end = datetime(2024, 6, 1)
-    feed = FakeAltFeed(_alt_frame())
+    feed = FakeAltFeed({"FRED.GDP": _alt_frame()})
     provider = DataFeedAltProvider(feed=feed)
 
     result = provider.get_data(["FRED.GDP"], start, end)
@@ -256,4 +248,5 @@ def test_alt_provider_uses_datafeed_get_data_for_alt_only():
             "end": end,
         }
     ]
-    assert result.equals(feed.alt_data)
+    assert set(result) == {"FRED.GDP"}
+    assert result["FRED.GDP"].equals(feed.alt_data["FRED.GDP"])

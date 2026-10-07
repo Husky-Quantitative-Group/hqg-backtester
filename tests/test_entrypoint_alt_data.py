@@ -106,6 +106,23 @@ def test_alt_data_state_applies_only_available_revisions():
     assert state.latest("FRED.GDP") == 101.0
 
 
+def test_alt_data_state_does_not_apply_revision_at_exact_clock():
+    frame = pd.DataFrame(
+        {
+            "value": [100.0],
+            "available_at": pd.to_datetime(["2024-02-15 00:00:00"]),
+        },
+        index=pd.to_datetime(["2024-01-01"]),
+    ).rename_axis("date")
+    state = AltDataState({"FRED.GDP": frame})
+
+    state.advance_to(pd.Timestamp("2024-02-15 00:00:00"))
+    assert state.snapshot("FRED.GDP") == {}
+
+    state.advance_to(pd.Timestamp("2024-02-15 00:00:01"))
+    assert state.snapshot("FRED.GDP") == {pd.Timestamp("2024-01-01"): 100.0}
+
+
 def test_alt_data_state_rejects_missing_value():
     frame = pd.DataFrame(
         {

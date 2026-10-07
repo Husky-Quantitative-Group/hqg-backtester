@@ -1,7 +1,7 @@
 """
 Strategy 21: GDP Growth Regime - SPY vs TLT
 Period: 2000-01-01 to 2026-01-01
-Cadence: Quarterly
+Cadence: Daily
 Logic: Compute year-over-year real GDP growth from FRED.GDP.
        Hold SPY when YoY GDP growth is above 2% and accelerating.
        Otherwise hold TLT as the defensive asset.

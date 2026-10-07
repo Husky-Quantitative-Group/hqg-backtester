@@ -24,7 +24,7 @@ class Orchestrator:
         → parse strategy (extract universe, dates, cadence)
         → fetch market data (hqg-datafeed)
         → fetch alt data (hqg-datafeed)
-        → convert DataFrame → JSON
+        → convert data → JSON
         → build ExecutionPayload
         → Executor (Docker container)
         → OutputValidator (sanity checks)
@@ -87,13 +87,13 @@ class Orchestrator:
                 alt_data_json: Dict[str, Any] = {}
 
                 if alt_data:
-                    alt_frame = await asyncio.to_thread(
+                    alt_frames = await asyncio.to_thread(
                         self.alt_provider.get_data,
                         series=alt_data,
                         start_date=request.start_date,
                         end_date=request.end_date,
                     )
-                    alt_data_json = alt_dataframe_to_json(alt_frame, alt_data)
+                    alt_data_json = alt_dataframe_to_json(alt_frames, alt_data)
 
                 # Build execution payload
                 payload = ExecutionPayload(
@@ -147,25 +147,25 @@ def dataframe_to_json(data: pd.DataFrame, symbols: list[str]) -> Dict[str, Any]:
     return market_data
 
 
-def alt_dataframe_to_json(data: pd.DataFrame, series_ids: list[str]) -> Dict[str, Any]:
+def alt_dataframe_to_json(data: dict[str, pd.DataFrame], series_ids: list[str]) -> Dict[str, Any]:
     """
     Convert raw alternative data to JSON for the execution payload.
 
-    Input:  DataFrame with MultiIndex columns (series_id, field) and
-            DatetimeIndex. The index may contain duplicates for revised series.
+    Input:  Dict of per-series DataFrames keyed by full series id. Each frame
+            has a DatetimeIndex that may contain duplicates for revised series.
     Output: {"FRED.GDP": {"date": [...], "value": [...], "available_at": [...]}}
     """
     alt_data: Dict[str, Any] = {}
 
-    if data.empty:
+    if not data:
         return {series_id: {"date": []} for series_id in series_ids}
 
     for series_id in series_ids:
-        if not isinstance(data.columns, pd.MultiIndex) or series_id not in data.columns.get_level_values(0):
+        frame = data.get(series_id)
+        if frame is None:
             alt_data[series_id] = {"date": []}
             continue
 
-        frame = data[series_id]
         series_data: Dict[str, list] = {
             "date": [None if pd.isna(ts) else ts.isoformat() for ts in frame.index]
         }

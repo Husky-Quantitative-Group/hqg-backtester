@@ -16,12 +16,9 @@ class DataFeedAltProvider:
         series: List[str],
         start_date: datetime,
         end_date: datetime,
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.DataFrame]:
         if not series:
-            return pd.DataFrame(
-                index=pd.DatetimeIndex([], name="date"),
-                columns=pd.MultiIndex.from_tuples([], names=["series_id", "field"]),
-            )
+            return {}
 
         market_data = self.feed.get_data(
             securities=[],
