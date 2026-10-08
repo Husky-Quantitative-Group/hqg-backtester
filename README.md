@@ -17,7 +17,9 @@ The primary supported path is the HTTP API:
 ## `hqg` CLI
 
 ```bash
-pip install hqg-backtester                                        # 1. install
+python3 -m venv venv
+source venv/bin/activate
+pip install hqg-backtester # or pip install -e .                  # 1. install
 hqg login                                                         # 2. sign in
 hqg run strategy.py --start 2023-01-01 --end 2024-01-01           # 3. backtest
 ```
@@ -48,8 +50,9 @@ Options for `hqg run`:
 | `--capital` | starting capital (default 10000) |
 | `--name` | name for the run (default: the file name) |
 | `--verbose` | also print the strategy's `self.log()` output |
-| `--json` | save the raw result JSON to `~/.hqg/logs` |
+| `--json` | save the raw result JSON to `~/.hqg/logs` & equity graph to `~/.hqg/graphs/` |
 | `--timeout` | seconds to wait for the result (default 60) |
+| `--profile` | profile your backtest |
 
 ## Quick Start (Docker Compose)
 
