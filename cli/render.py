@@ -1,9 +1,15 @@
 """Terminal formatting for backtest results."""
 
 from __future__ import annotations
-import asciichartpy
 from datetime import datetime
+from pathlib import Path
 from typing import Any
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 
 _LEFT_INDENT = 4
 _LABEL_W = 18
@@ -125,38 +131,24 @@ def render_logs(logs: list[str]) -> str:
     return f"  Logs\n{body}\n"
 
 
-def render_equity_graph(candles: list[dict]) -> str:
-    """Render ASCII equity curve from candle data."""
-    if not candles:
-        return ""
-
-    # Extract close prices as equity curve
+def save_equity_graph(candles: list[dict], out: Path) -> None:
+    times = [datetime.fromtimestamp(c["time"]) for c in candles]
     closes = [c["close"] for c in candles]
-    label_width = max(len(f"{min(closes):,.0f}"), len(f"{max(closes):,.0f}"))
 
-    # Build plot with asciichartpy
-    config = {
-        "height": 12,
-        "format": f"{{:>{label_width},.0f}}",
-    }
-
-    plot_str = asciichartpy.plot(closes, config)
-
-    # Format with header and indentation (matching existing pattern)
-    lines = ["", "  Equity Graph", ""]
-    for line in plot_str.split("\n"):
-        lines.append(f"    {line}")
-
-    # x axis: plot body starts after the label and tick columns asciichartpy reserves
-    width = len(closes)
-    gutter = " " * (label_width + 1)
-    first = datetime.fromtimestamp(candles[0]["time"]).strftime("%Y-%m-%d")
-    last = datetime.fromtimestamp(candles[-1]["time"]).strftime("%Y-%m-%d")
-    lines.append(f"    {gutter}└{'─' * width}")
-    lines.append(f"    {gutter} {first} {last:>{max(width - len(first) - 1, 0)}}")
-    lines.append("")
-
-    return "\n".join(lines)
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor="#fcfcfb")
+    ax.set_facecolor("#fcfcfb")
+    ax.plot(times, closes, color="#2a78d6", linewidth=2)
+    ax.set_title("Equity", loc="left", color="#0b0b0b")
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:,.0f}"))
+    ax.grid(axis="y", color="#e5e4e0", linewidth=0.8)
+    ax.tick_params(colors="#52514e", length=0)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color("#c3c2b7")
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
 
 
 def render_validation_errors(errors: list[str], source_name: str) -> str:

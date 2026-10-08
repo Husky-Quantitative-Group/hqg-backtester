@@ -16,7 +16,7 @@ from hqg_algorithms import validate_strategy
 from . import __version__
 from .api import BacktestClient
 from .auth import load_token, save_token
-from .render import render_logs, render_result, render_validation_errors, render_equity_graph
+from .render import render_logs, render_result, render_validation_errors, save_equity_graph
 from .settings import HQG_HOME, settings
 
 
@@ -105,18 +105,24 @@ def cmd_run(args: argparse.Namespace) -> int:
     candles = result.get("candles", [])
 
     print(summary)
-    # Equity graph appears after metrics, before logs
-    if candles:
-        print(render_equity_graph(candles))
     if args.verbose and logs:
         print(render_logs(logs))
     if args.profile and result.get("profile"):
         print(f"  Profile\n{result['profile']}")
 
+    stem = f"{name}-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
+
+    if args.json and candles:
+        graph_dir = HQG_HOME / "graphs"
+        graph_dir.mkdir(parents=True, exist_ok=True)
+        graph = graph_dir / f"{stem}.png"
+        save_equity_graph(candles, graph)
+        print(f"  equity graph saved to {graph}", file=sys.stderr)
+
     if args.json:
         log_dir = HQG_HOME / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
-        out = log_dir / f"{name}-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.json"
+        out = log_dir / f"{stem}.json"
         out.write_text(json.dumps(result, indent=2), encoding="utf-8")
         print(f"  saved to {out}", file=sys.stderr)
 
@@ -159,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--capital", type=float, default=10000.0, help="starting capital (default: 10000)"
     )
     run.add_argument("--name", help="name for this run (default: the file name)")
-    run.add_argument("--json", action="store_true", help="save the raw result to ~/.hqg/logs")
+    run.add_argument("--json", action="store_true", help="save the raw result to ~/.hqg/logs and the equity graph to ~/.hqg/graphs")
     run.add_argument("--verbose", action="store_true", help="include strategy log output")
     run.add_argument(
         "--profile", action="store_true", help="profile the backtest on the server (HQG_PROFILE)"
