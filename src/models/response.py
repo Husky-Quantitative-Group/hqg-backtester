@@ -79,3 +79,4 @@ class BacktestResponse(BaseModel):
     orders: list[Trade]
     candles: list[EquityCandle]
     holding_weights: list[WeightSnapshot]
+    profile: Optional[str] = None

@@ -28,3 +28,4 @@ class RawExecutionResult(BaseModel):
     errors: BacktestRequestError = Field(default_factory=BacktestRequestError, description="Any errors encountered during execution")
     bar_size: BarSize = Field(default=None, description="Strategy BarSize")
     strategy_logs: List[str] = Field(default_factory=list, description="Messages emitted via self.log() during strategy execution")
+    profile: Optional[str] = Field(default=None, description="cProfile stats from the container, when profiling is enabled")

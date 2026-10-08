@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hqg-backtester"
+version = "0.1.0"
+description = "Command line client for the HQG backtesting service"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27",
+    "hqg-algorithms>=1.0.1",
+    "matplotlib>=3.8",
+]
+
+[project.scripts]
+hqg = "hqg_cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/Husky-Quantitative-Group/hqg-backtester/"
+
+# Only the client ships on PyPI. The service under src/ is deployed from the
+# Docker images and keeps its dependencies in requirements.txt, so researchers
+# never pull fastapi, cvxpy, yfinance or pandas just to make HTTP calls.
+[tool.setuptools]
+packages = ["hqg_cli"]
+
+# The directory is cli/, but it installs under a namespaced import name: a bare
+# top-level `cli` package would shadow (or be shadowed by) any other installed
+# package or local cli.py using that very common name.
+[tool.setuptools.package-dir]
+hqg_cli = "cli"

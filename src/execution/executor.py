@@ -21,7 +21,7 @@ class Executor:
         self.image = image
         self.timeout = timeout
 
-    def execute(self, payload: ExecutionPayload) -> RawExecutionResult:
+    def execute(self, payload: ExecutionPayload, profile: bool = False) -> RawExecutionResult:
         """
         Spawn a Docker container, send ExecutionPayload via stdin,
         read RawExecutionResult from stdout.
@@ -29,7 +29,7 @@ class Executor:
         errors = BacktestRequestError()
         payload_json = payload.model_dump_json()
 
-        profile = os.environ.get("HQG_PROFILE", "0")
+        profile = "1" if profile else os.environ.get("HQG_PROFILE", "0")
 
         cmd = [
             "docker", "run",
@@ -80,7 +80,10 @@ class Executor:
                     bar_size=payload.bar_size
                 )
 
-            return RawExecutionResult.model_validate_json(result.stdout)
+            raw_result = RawExecutionResult.model_validate_json(result.stdout)
+            if "CONTAINER PROFILE" in result.stderr:
+                raw_result.profile = result.stderr.split("CONTAINER PROFILE", 1)[1].lstrip("=\n")
+            return raw_result
 
         except subprocess.TimeoutExpired:
             errors.add(f"Container timed out after {self.timeout}s")
