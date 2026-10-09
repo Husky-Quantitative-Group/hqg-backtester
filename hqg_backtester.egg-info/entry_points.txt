@@ -1,0 +1,2 @@
+[console_scripts]
+hqg = hqg_cli.main:main

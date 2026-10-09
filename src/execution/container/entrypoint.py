@@ -7,7 +7,7 @@ import os
 import pandas as pd
 from hqg_algorithms import Strategy, BarSize, Slice, Bar
 from typing import Dict, Any
-from src.models.execution import ExecutionPayload, RawExecutionResult
+from src.models.execution import ExecutionPayload, RawExecutionResult, FeatureFlags
 from src.models.portfolio import Portfolio
 from src.models.recorder import PortfolioRecorder
 from src.models.request import BacktestRequestError
@@ -80,11 +80,33 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
     }
     """
     errors = BacktestRequestError()
-    backtester = Backtester()
 
     try:
         # Convert market_data JSON to pandas DataFrame (MultiIndex format)
         data = json_to_dataframe(payload.market_data)
+
+        backtester = Backtester()
+
+        # Inject config module if config_params provided
+        if payload.config_params:
+            import types
+            config_module = types.ModuleType('config')
+            flags = set()
+            for key, value in payload.config_params.items():
+                setattr(config_module, key, value)
+                match(key):
+                    case "slippage":
+                        flags.add(FeatureFlags.SLIPPAGE)
+                        break
+                    case "commission":
+                        flags.add(FeatureFlags.COMMISSION)
+                        break
+                    case "add_random_noise":
+                        flags.add(FeatureFlags.ADD_RANDOM_NOISE)
+                        break
+            sys.modules['config'] = config_module
+            
+            backtester = Backtester(flags=flags, config_module=config_module)
 
         # Pre-build timestamp:Slice dict (avoid per-step MultiIndex slicing in loop)
         slices, timestamps = precompute_slices(data)
@@ -93,13 +115,6 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         # Load strategy class
         strategy_namespace = {}
 
-        # Inject config module if config_params provided
-        if payload.config_params:
-            import types
-            config_module = types.ModuleType('config')
-            for key, value in payload.config_params.items():
-                setattr(config_module, key, value)
-            sys.modules['config'] = config_module
 
         exec(payload.strategy_code, strategy_namespace)
 
@@ -146,7 +161,7 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        errors.add(f"Strategy execution error: {str(e)}")
+        errors.add(f"Strategy execution error - {type(e).__name__}: {str(e)}")
         return {
             "orders": [],
             "equity_curve": {},
@@ -158,7 +173,6 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             "errors": errors,
             "bar_size": BarSize.DAILY   # in case of failure before cadence defined
         }
-
 
 def json_to_dataframe(market_data: Dict[str, Any]) -> pd.DataFrame:
     """
