@@ -101,6 +101,9 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
                     case "commission":
                         flags.add(FeatureFlags.COMMISSION)
                         break
+                    case "add_random_noise":
+                        flags.add(FeatureFlags.ADD_RANDOM_NOISE)
+                        break
             sys.modules['config'] = config_module
             
             backtester = Backtester(flags=flags, config_module=config_module)

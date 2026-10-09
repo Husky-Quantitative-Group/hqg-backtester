@@ -180,14 +180,18 @@ class Backtester:
     def _add_noise(self, prices: Dict[str, float], symbols: List[str], noise: Noise) -> Dict[str, float]:
         """ Returns new price data with noise added according to the input distribution. """
         new_prices = {}
-        slippage = sys.modules["config"].slippage
+
+        try:
+            noise_range = sys.modules["config"].noise_range
+        except:
+            noise_range = 0.05
 
         for symbol in symbols:
             match (noise):
                 case Noise.UNIFORM:
-                    price = prices[symbol] + random.uniform(prices[symbol] - prices[symbol]*slippage, prices[symbol] + prices[symbol]*slippage)
+                    price = prices[symbol] + random.uniform(prices[symbol] - prices[symbol]*noise_range, prices[symbol] + prices[symbol]*noise_range)
                 case Noise.NORMAL:
-                    price = prices[symbol] + random.normalvariate(mu=prices[symbol], sigma=prices[symbol]*slippage)
+                    price = prices[symbol] + random.normalvariate(mu=prices[symbol], sigma=prices[symbol]*noise_range)
 
             new_prices[symbol] = price
 
