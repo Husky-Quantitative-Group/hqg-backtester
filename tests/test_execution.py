@@ -31,6 +31,7 @@ def make_request(
     commission: float = 0.001,
     slippage: float = 0.001,
     name: str = "Dashboard Backtest",
+    config: dict = None
 ) -> BacktestRequest:
     """
     Simulate a real request from the dashboard.
@@ -45,6 +46,7 @@ def make_request(
         initial_capital=initial_capital,
         commission=commission,
         slippage=slippage,
+        config_params=config,
     )
 
 
@@ -106,6 +108,59 @@ class TestCorrectness:
         assert result.metrics is not None
         assert result.metrics.total_orders >= 0, "SMA strategy may generate trades"
         assert result.parameters.starting_equity == 50000.0
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_sma_strategy_slippage(self):
+        handler = BacktestHandler()
+        request1 = make_request(
+            strategy_code=TestStrategies.VALID_SMA,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 6, 1),
+            initial_capital=50000.0,
+        )
+        request2 = make_request(
+            strategy_code=TestStrategies.VALID_SMA,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 6, 1),
+            initial_capital=50000.0,
+            config={"slippage": 0.2,}
+        )
+
+        result1 = await handler.run_backtest(request1)
+        result2 = await handler.run_backtest(request2)
+
+        assert result2.metrics is not None
+        assert result2.metrics.total_orders >= 0, "SMA strategy may generate trades"
+        assert result2.parameters.starting_equity == 50000.0
+        # Comparing the strings will check every metric
+        assert str(result2.metrics) != str(result1.metrics)
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_multiasset_slippage(self):
+        handler = BacktestHandler()
+        request1 = make_request(
+            strategy_code=TestStrategies.VALID_NUMPY_PANDAS,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 6, 1),
+            initial_capital=50000.0,
+        )
+        request2 = make_request(
+            strategy_code=TestStrategies.VALID_NUMPY_PANDAS,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 6, 1),
+            initial_capital=50000.0,
+            config={"slippage": 0.2,}
+        )
+
+        result1 = await handler.run_backtest(request1)
+        result2 = await handler.run_backtest(request2)
+
+        assert result2.metrics is not None
+        assert result2.metrics.total_orders >= 0, "SMA strategy may generate trades"
+        assert result2.parameters.starting_equity == 50000.0
+        # Comparing the strings will check every metric
 
     @pytest.mark.integration
     @pytest.mark.asyncio

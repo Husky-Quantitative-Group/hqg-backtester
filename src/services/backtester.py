@@ -1,5 +1,6 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 from hqg_algorithms import Strategy, Slice, PortfolioView, TargetWeights, Hold, Liquidate, ExecutionTiming, Bar
+from ..models.execution import FeatureFlags
 from ..models.portfolio import Portfolio
 from ..models.response import Trade
 from ..models.recorder import PortfolioRecorder
@@ -7,6 +8,8 @@ from ..services.data_provider.base_provider import BaseDataProvider
 
 from enum import Enum
 import random
+import types
+import sys
 
 class Noise(Enum):
     # 1-indexed so there aren't issues with 0 being evaluated
@@ -18,12 +21,24 @@ class Backtester:
     
     def __init__(
         self,
+        config_module = None,
+        flags = None,
         data_provider: Optional[BaseDataProvider] = None,
-        add_random_noise: bool = False
     ) -> None:
         self.data_provider = data_provider
-        self._add_random_noise = add_random_noise
-    
+        if flags:
+            self.flags = flags
+        else:
+            self.flags = set()
+
+        # ADD_RANDOM_NOISE = 0,
+        # SLIPPAGE = 1,
+        # COMMISSION = 2,
+
+        if config_module is not None:
+            sys.modules['config'] = config_module
+
+
     # TODO: add implementation for additional features: param / data noise, dropout, etc. 
     #async def run_advanced():
     #    pass
@@ -56,8 +71,9 @@ class Backtester:
         execution = strategy.cadence.execution
         trades = []
 
-        if (self._add_random_noise):
-            slices = self._layer_noise_on_slices(timestamps, slices, universe, Noise.NORMAL)
+
+        if (FeatureFlags.ADD_RANDOM_NOISE in self.flags):
+            slices = self._layer_noise_on_market_data(timestamps, slices, universe, Noise.NORMAL)
 
         for i, timestamp in enumerate(timestamps):
             slice_obj = slices[timestamp]
@@ -81,8 +97,14 @@ class Backtester:
                 weights=portfolio.get_weights(prices, tv)
             )
 
+
+            # Adds noise to the current layer before it goes to the strategy
+            if (FeatureFlags.SLIPPAGE in self.flags):
+                 slice_obj = self._layer_noise_on_slice(slice_obj, universe, Noise.NORMAL)
+
             # determine target weights via Signal
             signal = strategy.on_data(slice_obj, portfolio_view)
+
             if isinstance(signal, Hold):
                 continue
             if isinstance(signal, Liquidate):
@@ -158,51 +180,57 @@ class Backtester:
     def _add_noise(self, prices: Dict[str, float], symbols: List[str], noise: Noise) -> Dict[str, float]:
         """ Returns new price data with noise added according to the input distribution. """
         new_prices = {}
+        slippage = sys.modules["config"].slippage
+
         for symbol in symbols:
             match (noise):
                 case Noise.UNIFORM:
-                    price = prices[symbol] + random.uniform(prices[symbol] - prices[symbol]*0.05, prices[symbol] + prices[symbol]*0.05)
+                    price = prices[symbol] + random.uniform(prices[symbol] - prices[symbol]*slippage, prices[symbol] + prices[symbol]*slippage)
                 case Noise.NORMAL:
-                    price = prices[symbol] + random.normalvariate(mu=prices[symbol], sigma=prices[symbol]*0.05)
+                    price = prices[symbol] + random.normalvariate(mu=prices[symbol], sigma=prices[symbol]*slippage)
+
+            new_prices[symbol] = price
 
             if price is None or price < 0:
                 new_prices[symbol] = prices[symbol]
 
         return new_prices
 
-    def _layer_noise_on_slices(self, timestamps: list, slices: Dict, universe: list, noise: Noise) -> Dict:
+    def _layer_noise_on_slice(self, slice_obj: Slice, universe: list, noise: Noise) -> Slice:
+        """ Creates a new slice with the same price data + some noise as slice_obj """
+        open = self._get_open(slice_obj, universe)
+        high = self._get_high(slice_obj, universe)
+        low = self._get_low(slice_obj, universe)
+        close = self._get_close(slice_obj, universe)
+        volume = self._get_volume(slice_obj, universe)
+
+        open = self._add_noise(open, universe, noise)
+        high =self._add_noise(high, universe, noise)
+        low = self._add_noise(low, universe, noise)
+        close = self._add_noise(close, universe, noise)
+        volume = self._add_noise(volume, universe, noise)
+
+        bars = {}
+        for s in universe:
+            bars[s] = Bar(
+                open=open[s],
+                high=high[s],
+                low=low[s],
+                close=close[s],
+                volume=volume[s]
+            )
+        return Slice(bars)
+
+    def _layer_noise_on_market_data(self, timestamps: list, slices: Dict, universe: list, noise: Noise) -> Dict:
         """ Computes new slices for every timestamp with noise"""
         new_slices = dict()
 
         for i, timestamp in enumerate(timestamps):
-
             slice_obj = slices[timestamp]
-
-            open = self._get_open(slice_obj, universe)
-            high = self._get_high(slice_obj, universe)
-            low = self._get_low(slice_obj, universe)
-            close = self._get_close(slice_obj, universe)
-            volume = self._get_volume(slice_obj, universe)
-
-            self._add_noise(open, universe, noise)
-            self._add_noise(high, universe, noise)
-            self._add_noise(low, universe, noise)
-            self._add_noise(close, universe, noise)
-            self._add_noise(volume, universe, noise)
-
-            bars = {}
-            for s in universe:
-                bars[s] = Bar(
-                    open=open[s],
-                    high=high[s],
-                    low=low[s],
-                    close=close[s],
-                    volume=volume[s]
-                )
-
-            new_slices[timestamp] = Slice(bars)
+            new_slices[timestamp] = self._layer_noise_on_slice(slice_obj, universe, noise)
 
         return new_slices
+
     ###############################################################################
 
     # NOTE: this function currently fails, as RawExecutionResult now requires more fields
