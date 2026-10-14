@@ -1,8 +1,14 @@
 from pydantic import BaseModel, Field
 from hqg_algorithms import BarSize
 from datetime import datetime
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Set
 from ..models.request import BacktestRequestError
+from enum import Enum
+
+class FeatureFlags(Enum):
+    ADD_RANDOM_NOISE = 0,
+    SLIPPAGE = 1,
+    COMMISSION = 2,
 
 class ExecutionPayload(BaseModel):
     strategy_code: str = Field(..., description="Raw Python strategy code to execute", min_length=10)
@@ -14,7 +20,6 @@ class ExecutionPayload(BaseModel):
     market_data: Dict[str, Any] = Field(..., description="Pre-fetched OHLC data")
     alt_data: Dict[str, Any] = Field(default_factory=dict, description="Pre-fetched alternative data")
     config_params: Optional[Dict[str, Any]] = Field(default=None, description="Config parameters to inject as 'config' module in sandbox")
-
 
 class RawExecutionResult(BaseModel):
     orders: List[Dict[str, Any]] = Field(default_factory=list, description="Raw trade data")
