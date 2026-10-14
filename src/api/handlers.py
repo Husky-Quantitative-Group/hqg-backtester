@@ -23,7 +23,7 @@ class BacktestHandler:
             # parse -> fetch -> execute -> validate
             raw_result = await self.orchestrator.run(request)
 
-            response = build_backtest_response("NA", request, raw_result, self.orchestrator.data_provider)
+            response = build_backtest_response("NA", request, raw_result, self.orchestrator.securities_provider)
             return response
 
         except Exception as e:

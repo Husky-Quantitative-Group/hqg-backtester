@@ -9,7 +9,7 @@ The primary supported path is the HTTP API:
 1. Accepts strategy code + backtest parameters
 2. Performs AST-based static analysis (imports, builtins, attributes, syntax)
 3. Loads the strategy to extract `universe()` and `cadence()`
-4. Fetches market data (Yahoo Finance) with a parquet cache
+4. Fetches securities data (and optionally alt data) through `hqg-datafeed`
 5. Executes the strategy inside a locked-down Docker sandbox container
 6. Validates execution output
 7. Computes performance metrics and returns a frontend-shaped response
@@ -177,15 +177,15 @@ The strategy should return target portfolio weights (`sum(weights) <= 1.0`).
   - memory / CPU / PID limits
   - dropped Linux capabilities
 
-## Data Provider and Caching
+## Data Provider
 
-Default provider: Yahoo Finance (`yfinance`) via `YFDataProvider`.
+Default provider: `hqg-datafeed` via `DataFeedSecuritiesProvider`.
 
 Behavior:
 
-- Fetches daily OHLCV and stores per-symbol parquet cache in `data/cache/`
+- Fetches daily securities OHLCV through `DataFeed.get_data()`
 - Resamples to weekly/monthly/quarterly when requested by strategy cadence
-- Uses symbol-level locks to avoid cache write races
+- Fetches declared raw alternative data through `DataFeedAltProvider`
 
 ## Middleware / Runtime Limits
 
@@ -219,7 +219,7 @@ pytest -m "not integration"
 Integration tests exercise the full pipeline and typically require:
 
 - Docker
-- network access (Yahoo Finance)
+- network access for securities data
 - longer execution times
 
 ## Project Layout
