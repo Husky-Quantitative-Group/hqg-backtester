@@ -94,16 +94,16 @@ def execute_backtest(payload: ExecutionPayload) -> Dict[str, Any]:
             flags = set()
             for key, value in payload.config_params.items():
                 setattr(config_module, key, value)
+
                 match(key):
                     case "slippage":
-                        flags.add(FeatureFlags.SLIPPAGE)
-                        break
+                        if value:
+                            flags.add(FeatureFlags.SLIPPAGE)
                     case "commission":
                         flags.add(FeatureFlags.COMMISSION)
-                        break
                     case "add_random_noise":
                         flags.add(FeatureFlags.ADD_RANDOM_NOISE)
-                        break
+
             sys.modules['config'] = config_module
             
             backtester = Backtester(flags=flags, config_module=config_module)

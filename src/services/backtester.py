@@ -189,9 +189,9 @@ class Backtester:
         for symbol in symbols:
             match (noise):
                 case Noise.UNIFORM:
-                    price = prices[symbol] + random.uniform(prices[symbol] - prices[symbol]*noise_range, prices[symbol] + prices[symbol]*noise_range)
+                    price = prices[symbol] + random.uniform(-prices[symbol]*noise_range, prices[symbol]*noise_range)
                 case Noise.NORMAL:
-                    price = prices[symbol] + random.normalvariate(mu=prices[symbol], sigma=prices[symbol]*noise_range)
+                    price = prices[symbol] + random.normalvariate(mu=0, sigma=prices[symbol]*noise_range)
 
             new_prices[symbol] = price
 
@@ -226,14 +226,12 @@ class Backtester:
         return Slice(bars)
 
     def _layer_noise_on_market_data(self, timestamps: list, slices: Dict, universe: list, noise: Noise) -> Dict:
-        """ Computes new slices for every timestamp with noise"""
-        new_slices = dict()
-
+        """ Modifies and returns the Slices for every timestamp with noise"""
         for i, timestamp in enumerate(timestamps):
             slice_obj = slices[timestamp]
-            new_slices[timestamp] = self._layer_noise_on_slice(slice_obj, universe, noise)
+            slices[timestamp] = self._layer_noise_on_slice(slice_obj, universe, noise)
 
-        return new_slices
+        return slices
 
     ###############################################################################
 
