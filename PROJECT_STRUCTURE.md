@@ -40,7 +40,9 @@ Core backtesting and data management services.
 
 - **`data_provider/`** - Market data abstraction
   - **`base_provider.py`** - Abstract `DataProvider` interface
-  - **`yf_provider.py`** - Yahoo Finance implementation (default)
+  - **`datafeed_provider_securities.py`** - `hqg-datafeed` securities adapter (default)
+  - **`datafeed_provider_alt.py`** - `hqg-datafeed` alternative-data adapter
+  - **`yf_provider.py`** - Direct Yahoo Finance implementation
   - **`mock_provider.py`** - Mock provider for testing
 
 ## `/src/models/` - Request/Response Models
