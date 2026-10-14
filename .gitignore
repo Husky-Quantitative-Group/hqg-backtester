@@ -9,3 +9,9 @@ data/cache/
 output.prof
 profile.py
 logs*
+
+# Python packaging artifacts (the cli/ client builds a wheel)
+build/
+dist/
+*.egg-info/
+venv/
