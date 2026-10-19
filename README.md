@@ -14,12 +14,45 @@ The primary supported path is the HTTP API:
 6. Validates execution output
 7. Computes performance metrics and returns a frontend-shaped response
 
-## Current API Surface
+## `hqg` CLI
 
-- `GET /health`
-- `POST /api/v1/backtest`
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install hqg-backtester # or pip install -e .                  # 1. install
+hqg login                                                         # 2. sign in
+hqg run strategy.py --start 2023-01-01 --end 2024-01-01           # 3. backtest
+```
 
-Docker Compose exposes the API on `http://localhost:8005`.
+### Authentication
+
+The service only accepts requests from signed-in members, so `hqg login` is a
+required step before your first run. 
+
+1. Sign in to the dashboard at `https://dashboard.uconnquant.com`.
+2. Copy the `hqg_auth_token` cookie (DevTools → Application → Cookies).
+3. Run `hqg login` and paste it at the prompt.
+
+The token is saved to `~/.hqg/credentials` (owner-readable only) and lasts 24 hours.
+
+### Commands
+
+| Command | Purpose |
+| --- | --- |
+| `hqg login` | save your dashboard token, then verify it works |
+| `hqg run STRATEGY --start YYYY-MM-DD --end YYYY-MM-DD` | run a backtest and wait for the result |
+| `hqg health` | check that the service is reachable |
+
+Options for `hqg run`:
+
+| Option | Purpose |
+| --- | --- |
+| `--capital` | starting capital (default 10000) |
+| `--name` | name for the run (default: the file name) |
+| `--verbose` | also print the strategy's `self.log()` output |
+| `--json` | save the raw result JSON to `~/.hqg/logs` & equity graph to `~/.hqg/graphs/` |
+| `--timeout` | seconds to wait for the result (default 60) |
+| `--profile` | profile your backtest |
 
 ## Quick Start (Docker Compose)
 
@@ -33,6 +66,10 @@ Run:
 ```bash
 docker compose up --build
 ```
+
+Always pass `--build` after pulling. `docker compose up -d` on its own reuses
+the existing image, so the container silently runs stale code while your working
+tree looks current.
 
 This builds:
 
