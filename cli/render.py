@@ -8,6 +8,7 @@ from typing import Any
 import matplotlib
 
 matplotlib.use("Agg")
+# matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
@@ -137,7 +138,7 @@ def save_equity_graph(candles: list[dict], out: Path) -> None:
 
     fig, ax = plt.subplots(figsize=(10, 4), facecolor="#fcfcfb")
     ax.set_facecolor("#fcfcfb")
-    ax.plot(times, closes, color="#2a78d6", linewidth=2)
+    ax.plot(times, closes, color="#2a78d6", linewidth=0.5)
     ax.set_title("Equity", loc="left", color="#0b0b0b")
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:,.0f}"))
     ax.grid(axis="y", color="#e5e4e0", linewidth=0.8)
@@ -147,7 +148,8 @@ def save_equity_graph(candles: list[dict], out: Path) -> None:
     ax.spines["bottom"].set_color("#c3c2b7")
     fig.autofmt_xdate()
     fig.tight_layout()
-    fig.savefig(out, dpi=150)
+    fig.savefig(out, dpi=1500)
+    #plt.show()
     plt.close(fig)
 
 
