@@ -12,7 +12,7 @@ ALLOWED_MODULES: set[str] = {
     "statistics",
     # ML, data engineering
     "scikit-learn",
-    "xgboost"
+    "xgboost",
     "sklearn",
     # Optimization
     "cvxpy",

@@ -9,4 +9,8 @@ data/cache/
 output.prof
 profile.py
 logs*
-*.egg-info
+
+build/
+dist/
+*.egg-info/
+venv/

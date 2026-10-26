@@ -63,4 +63,5 @@ def build_backtest_response(
         orders=trades,
         candles=candles,
         holding_weights=holding_weights,
+        profile=raw_result.profile,
     )
