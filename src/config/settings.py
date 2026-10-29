@@ -24,5 +24,7 @@ class Settings(BaseSettings):
 
     # Optional auth middleware
     HQG_DASH_JWKS_URL: str = ""
+    # Shared secret for trusted internal callers (engine provider). Empty disables it.
+    HQG_SERVICE_SECRET: str = ""
     
 settings = Settings()
