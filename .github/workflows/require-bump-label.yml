@@ -1,0 +1,20 @@
+name: Require bump label
+
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify a bump label is present
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          count=$(jq 'length' <<< "$LABELS")
+          if [ "$count" -ne 1 ]; then
+            echo "PR must carry exactly one label, found $count (breaking = major, feature = minor, any other single label = patch)." >&2
+            exit 1
+          fi
