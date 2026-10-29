@@ -245,6 +245,18 @@ Common settings:
 
 See `.env.example` for the base template.
 
+## Releases
+
+Merging a PR into `main` releases the service automatically:
+1. `require-bump-label` requires the PR to carry exactly one label.
+2. `release.yml` runs `make test`, builds the image, and tags it `X.Y.Z-<12-hex>`. Each release also gets a git tag `vX.Y.Z`.
+3. It sends `service-released` to `hqg-deployment`, which deploys the image.
+
+Version bump from the label:
+- `breaking`: major (X)
+- `feature`: minor (Y)
+- any other single label: patch (Z)
+
 ## Testing
 
 Run fast tests:
