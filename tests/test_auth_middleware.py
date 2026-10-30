@@ -103,7 +103,7 @@ def test_auth_refreshes_jwks_on_kid_miss(monkeypatch):
     monkeypatch.setattr(
         middleware.jwt,
         "decode",
-        lambda token, key, algorithms, options: {"sub": "netid", "roles": ["PUBLIC"]},
+        lambda token, key, algorithms, options, **kwargs: {"sub": "netid", "roles": ["PUBLIC"]},
     )
 
     app = FastAPI()
@@ -119,3 +119,47 @@ def test_auth_refreshes_jwks_on_kid_miss(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {"ok": True}
     assert calls == [False, True]
+
+
+def _protected_app():
+    app = FastAPI()
+    app.add_middleware(HqgAuthMiddleware, jwks_url="https://example.com/jwks.json")
+
+    @app.get("/api/protected")
+    async def protected():
+        return {"ok": True}
+
+    return TestClient(app)
+
+
+@pytest.mark.unit
+def test_service_secret_bypasses_cookie_auth(monkeypatch):
+    monkeypatch.setattr(middleware.settings, "HQG_SERVICE_SECRET", "s3cret")
+
+    response = _protected_app().get(
+        "/api/protected", headers={"Authorization": "Bearer s3cret"}
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.unit
+def test_wrong_service_secret_is_rejected(monkeypatch):
+    monkeypatch.setattr(middleware.settings, "HQG_SERVICE_SECRET", "s3cret")
+
+    response = _protected_app().get(
+        "/api/protected", headers={"Authorization": "Bearer wrong"}
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.unit
+def test_empty_bearer_does_not_match_unconfigured_secret(monkeypatch):
+    monkeypatch.setattr(middleware.settings, "HQG_SERVICE_SECRET", "")
+
+    response = _protected_app().get(
+        "/api/protected", headers={"Authorization": "Bearer "}
+    )
+
+    assert response.status_code == 401

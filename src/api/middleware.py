@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
 import asyncio
+import hmac
 import json
 import threading
 import time
@@ -110,6 +111,15 @@ class HqgAuthMiddleware(BaseHTTPMiddleware):
         # Only protect API routes
         path = request.url.path or ""
         if not path.startswith("/api/"):
+            return await call_next(request)
+
+        # Trusted internal services (engine provider) present a shared secret
+        auth = request.headers.get("authorization", "")
+        if (
+            settings.HQG_SERVICE_SECRET
+            and auth.startswith("Bearer ")
+            and hmac.compare_digest(auth[7:].encode(), settings.HQG_SERVICE_SECRET.encode())
+        ):
             return await call_next(request)
 
         # Read auth token from cookies

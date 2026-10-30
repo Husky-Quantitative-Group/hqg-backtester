@@ -241,6 +241,7 @@ Common settings:
 - `API_HOST` (default `0.0.0.0`)
 - `API_PORT` (default `8000`)
 - `HQG_DASH_JWKS_URL` (optional; enables auth middleware)
+- `HQG_SERVICE_SECRET` (optional; lets internal callers authenticate with `Authorization: Bearer <secret>` when auth is on)
 - `HQG_PROFILE=1` (optional; enables container profiling logs)
 
 See `.env.example` for the base template.
