@@ -191,8 +191,9 @@ class Backtester:
                 case Noise.NORMAL:
                     prices[symbol] += random.normalvariate(mu=0, sigma=prices[symbol]*noise_range)
 
-            if prices[symbol] < 0:
-                prices[symbol] = 0
+            # to prevent division by zero errors and negative prices
+            if prices[symbol] <= 0:
+                prices[symbol] = 1e-100 
 
         return prices
 
