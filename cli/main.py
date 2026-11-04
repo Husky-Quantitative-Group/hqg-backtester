@@ -41,13 +41,34 @@ def _parse_date(value: str, flag: str) -> datetime:
     except ValueError:
         raise ValueError(f"{flag} must be a date in YYYY-MM-DD form, got {value!r}") from None
 
+def _parse_config_file(path: Path) -> dict:
+    if path is None:
+        return {}
 
-def build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str, Any]:
+    if not path.exists():
+        raise ValueError(f"No such file: {path}")
+    if path.is_dir():
+        raise ValueError(f"{path} is a directory; point at a configuration file.")
+    try:
+        output = json.loads(path.read_text())
+
+        if len(output.keys()) == 0:
+            return {}
+        else:
+            return output
+
+    except OSError as exc:
+        raise ValueError(f"Could not read {path}: {exc}") from exc
+
+
+def build_payload(args: argparse.Namespace, source: str, name: str, backtest_params: dict) -> dict[str, Any]:
+    capital = args.capital # this has a default value
     start = _parse_date(args.start, "--start")
     end = _parse_date(args.end, "--end")
+
     if end <= start:
         raise ValueError("--end must be after --start")
-    if args.capital <= 0:
+    if capital <= 0:
         raise ValueError("--capital must be greater than 0")
 
     # TODO: commission & slippage
@@ -56,12 +77,38 @@ def build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str,
         "name": name,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
-        "initial_capital": args.capital,
+        "initial_capital": capital,
         "profile": args.profile,
+        "config_params": backtest_params,
     }
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    config_path = Path(args.config)
+    config = _parse_config_file(config_path)
+    backtest_params = None
+
+    # If there is no config file or it isn't proper json, an empty dict
+    # will be returned so this loop will never run
+    for key, value in config.items():
+        match key:
+            case "start":
+                args.start = str(config.get("start"))
+            case "end":
+                args.end = str(config.get("end"))
+            case "name":
+                args.profile = str(config.get("name"))
+            case "capital":
+                args.capital = float(config.get("capital"))
+            case "profile":
+                args.profile = bool(config.get("profile"))
+            case "verbose":
+                args.verbose = bool(config.get("verbose"))
+            case "json":
+                args.json = bool(config.get("json"))
+            case "params":
+                backtest_params = config.get("params")
+
     path = Path(args.strategy)
     source = read_strategy(path)
     name = args.name or path.stem
@@ -71,7 +118,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(render_validation_errors(errors, path.name), file=sys.stderr)
         return 2
 
-    payload = build_payload(args, source, name)
+    payload = build_payload(args, source, name, backtest_params)
 
     client = NewClient()
     client.health()
@@ -159,8 +206,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run", help="run a backtest on a strategy file")
     run.add_argument("strategy", help="path to a Python file defining a Strategy subclass")
-    run.add_argument("--start", required=True, metavar="YYYY-MM-DD", help="backtest start date")
-    run.add_argument("--end", required=True, metavar="YYYY-MM-DD", help="backtest end date")
+    run.add_argument("--start", required=False, metavar="YYYY-MM-DD", help="backtest start date")
+    run.add_argument("--end", required=False, metavar="YYYY-MM-DD", help="backtest end date")
     run.add_argument(
         "--capital", type=float, default=10000.0, help="starting capital (default: 10000)"
     )
@@ -176,6 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=600.0,
         help="seconds to wait for the result (default: 600)",
     )
+    run.add_argument("--config", help="path to a json configuration file")
     run.set_defaults(func=cmd_run)
 
     health = subparsers.add_parser("health", help="check that the service is reachable")
