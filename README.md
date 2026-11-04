@@ -53,6 +53,7 @@ Options for `hqg run`:
 | `--json` | save the raw result JSON to `~/.hqg/logs` & equity graph to `~/.hqg/graphs/` |
 | `--timeout` | seconds to wait for the result (default 60) |
 | `--profile` | profile your backtest |
+| `--config` | the path to a config file for this backtest. Can have CLI flags and/or config_parameters for the backtester |
 
 ## Quick Start (Docker Compose)
 
