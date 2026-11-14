@@ -16,7 +16,14 @@ from hqg_algorithms import validate_strategy
 from . import __version__
 from .api import BacktestClient
 from .auth import load_token, save_token
-from .render import render_logs, render_result, render_validation_errors, save_equity_graph
+from .render import (
+    render_logs,
+    render_result,
+    render_validation_errors,
+    save_equity_graph,
+    save_portfolio_allocation_graph,
+    save_weight_graph,
+)
 from .settings import HQG_HOME, settings
 
 
@@ -104,8 +111,8 @@ def cmd_run(args: argparse.Namespace) -> int:
                 args.profile = bool(config.get("profile"))
             case "verbose":
                 args.verbose = bool(config.get("verbose"))
-            case "json":
-                args.json = bool(config.get("json"))
+            case "graph":
+                args.graph = bool(config.get("graph"))
             case "params":
                 backtest_params = config.get("params")
 
@@ -143,6 +150,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  {record.get('error') or 'did not complete'}", file=sys.stderr)
         return 1
 
+    # Result is an optional BacktestResponse object from a JobRecord
     result = record.get("result")
     if not result:
         raise RuntimeError("The job completed but returned no result.")
@@ -150,6 +158,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     summary = render_result(result, path.name, elapsed)
     logs: list[str] = record.get("logs") or []
     candles = result.get("candles", [])
+    orders = result.get("orders", [])
+    weights = result.get("holding_weights", [])
 
     print(summary)
     if args.verbose and logs:
@@ -159,14 +169,27 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     stem = f"{name}-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
 
-    if args.json and candles:
-        graph_dir = HQG_HOME / "graphs"
-        graph_dir.mkdir(parents=True, exist_ok=True)
-        graph = graph_dir / f"{stem}.png"
+    graph_dir = HQG_HOME / "graphs"
+    graph_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.graph and candles:
+        graph = graph_dir / f"{stem}-equity.png"
         save_equity_graph(candles, graph)
         print(f"  equity graph saved to {graph}", file=sys.stderr)
 
-    if args.json:
+    if args.graph and weights:
+        graph = graph_dir / f"{stem}-allocation.png"
+        save_portfolio_allocation_graph(weights, graph)
+        print(f"  portfolio allocation graph saved to {graph}", file=sys.stderr)
+
+    if args.graph and candles:
+        graph = graph_dir / f"{stem}-weights.png"
+        parameters = result.get("parameters") or {}
+        starting_equity = parameters.get("starting_equity", args.capital)
+        save_weight_graph(candles, orders, starting_equity, graph)
+        print(f"  weight graph saved to {graph}", file=sys.stderr)
+
+    if args.graph:
         log_dir = HQG_HOME / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         out = log_dir / f"{stem}.json"
@@ -212,7 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--capital", type=float, default=10000.0, help="starting capital (default: 10000)"
     )
     run.add_argument("--name", help="name for this run (default: the file name)")
-    run.add_argument("--json", action="store_true", help="save the raw result to ~/.hqg/logs and the equity graph to ~/.hqg/graphs")
+    run.add_argument("--graph", action="store_true", help="save the raw result to ~/.hqg/logs and the equity, portfolio allocation & weight graphs to ~/.hqg/graphs")
     run.add_argument("--verbose", action="store_true", help="include strategy log output")
     run.add_argument(
         "--profile", action="store_true", help="profile the backtest on the server (HQG_PROFILE)"
