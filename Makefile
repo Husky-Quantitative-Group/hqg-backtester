@@ -5,5 +5,8 @@ all:
 deploy:
 	uvicorn src.api.server:app --host 0.0.0.0 --port 8005
 
+clean:
+	rm ~/.hqg/graphs/*
+
 test:
 	pytest -v tests/test_execution.py
