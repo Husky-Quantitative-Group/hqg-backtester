@@ -16,7 +16,14 @@ from hqg_algorithms import validate_strategy
 from . import __version__
 from .api import BacktestClient
 from .auth import load_token, save_token
-from .render import render_logs, render_result, render_validation_errors, save_equity_graph
+from .render import (
+    render_logs,
+    render_result,
+    render_validation_errors,
+    save_equity_graph,
+    save_portfolio_allocation_graph,
+    save_weight_graph,
+)
 from .settings import HQG_HOME, settings
 
 
@@ -41,13 +48,34 @@ def _parse_date(value: str, flag: str) -> datetime:
     except ValueError:
         raise ValueError(f"{flag} must be a date in YYYY-MM-DD form, got {value!r}") from None
 
+def _parse_config_file(path: Path) -> dict:
+    if path is None:
+        return {}
 
-def build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str, Any]:
+    if not path.exists():
+        raise ValueError(f"No such file: {path}")
+    if path.is_dir():
+        raise ValueError(f"{path} is a directory; point at a configuration file.")
+    try:
+        output = json.loads(path.read_text())
+
+        if len(output.keys()) == 0:
+            return {}
+        else:
+            return output
+
+    except OSError as exc:
+        raise ValueError(f"Could not read {path}: {exc}") from exc
+
+
+def build_payload(args: argparse.Namespace, source: str, name: str, backtest_params: dict) -> dict[str, Any]:
+    capital = args.capital # this has a default value
     start = _parse_date(args.start, "--start")
     end = _parse_date(args.end, "--end")
+
     if end <= start:
         raise ValueError("--end must be after --start")
-    if args.capital <= 0:
+    if capital <= 0:
         raise ValueError("--capital must be greater than 0")
 
     # TODO: commission & slippage
@@ -56,12 +84,38 @@ def build_payload(args: argparse.Namespace, source: str, name: str) -> dict[str,
         "name": name,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
-        "initial_capital": args.capital,
+        "initial_capital": capital,
         "profile": args.profile,
+        "config_params": backtest_params,
     }
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    config_path = Path(args.config)
+    config = _parse_config_file(config_path)
+    backtest_params = None
+
+    # If there is no config file or it isn't proper json, an empty dict
+    # will be returned so this loop will never run
+    for key, value in config.items():
+        match key:
+            case "start":
+                args.start = str(config.get("start"))
+            case "end":
+                args.end = str(config.get("end"))
+            case "name":
+                args.profile = str(config.get("name"))
+            case "capital":
+                args.capital = float(config.get("capital"))
+            case "profile":
+                args.profile = bool(config.get("profile"))
+            case "verbose":
+                args.verbose = bool(config.get("verbose"))
+            case "graph":
+                args.graph = bool(config.get("graph"))
+            case "params":
+                backtest_params = config.get("params")
+
     path = Path(args.strategy)
     source = read_strategy(path)
     name = args.name or path.stem
@@ -71,7 +125,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(render_validation_errors(errors, path.name), file=sys.stderr)
         return 2
 
-    payload = build_payload(args, source, name)
+    payload = build_payload(args, source, name, backtest_params)
 
     client = NewClient()
     client.health()
@@ -96,6 +150,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  {record.get('error') or 'did not complete'}", file=sys.stderr)
         return 1
 
+    # Result is an optional BacktestResponse object from a JobRecord
     result = record.get("result")
     if not result:
         raise RuntimeError("The job completed but returned no result.")
@@ -103,6 +158,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     summary = render_result(result, path.name, elapsed)
     logs: list[str] = record.get("logs") or []
     candles = result.get("candles", [])
+    orders = result.get("orders", [])
+    weights = result.get("holding_weights", [])
 
     print(summary)
     if args.verbose and logs:
@@ -112,14 +169,27 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     stem = f"{name}-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
 
-    if args.json and candles:
-        graph_dir = HQG_HOME / "graphs"
-        graph_dir.mkdir(parents=True, exist_ok=True)
-        graph = graph_dir / f"{stem}.png"
+    graph_dir = HQG_HOME / "graphs"
+    graph_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.graph and candles:
+        graph = graph_dir / f"{stem}-equity.png"
         save_equity_graph(candles, graph)
         print(f"  equity graph saved to {graph}", file=sys.stderr)
 
-    if args.json:
+    if args.graph and weights:
+        graph = graph_dir / f"{stem}-allocation.png"
+        save_portfolio_allocation_graph(weights, graph)
+        print(f"  portfolio allocation graph saved to {graph}", file=sys.stderr)
+
+    if args.graph and candles:
+        graph = graph_dir / f"{stem}-weights.png"
+        parameters = result.get("parameters") or {}
+        starting_equity = parameters.get("starting_equity", args.capital)
+        save_weight_graph(candles, orders, starting_equity, graph)
+        print(f"  weight graph saved to {graph}", file=sys.stderr)
+
+    if args.graph:
         log_dir = HQG_HOME / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         out = log_dir / f"{stem}.json"
@@ -159,13 +229,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run", help="run a backtest on a strategy file")
     run.add_argument("strategy", help="path to a Python file defining a Strategy subclass")
-    run.add_argument("--start", required=True, metavar="YYYY-MM-DD", help="backtest start date")
-    run.add_argument("--end", required=True, metavar="YYYY-MM-DD", help="backtest end date")
+    run.add_argument("--start", required=False, metavar="YYYY-MM-DD", help="backtest start date")
+    run.add_argument("--end", required=False, metavar="YYYY-MM-DD", help="backtest end date")
     run.add_argument(
         "--capital", type=float, default=10000.0, help="starting capital (default: 10000)"
     )
     run.add_argument("--name", help="name for this run (default: the file name)")
-    run.add_argument("--json", action="store_true", help="save the raw result to ~/.hqg/logs and the equity graph to ~/.hqg/graphs")
+    run.add_argument("--graph", action="store_true", help="save the raw result to ~/.hqg/logs and the equity, portfolio allocation & weight graphs to ~/.hqg/graphs")
     run.add_argument("--verbose", action="store_true", help="include strategy log output")
     run.add_argument(
         "--profile", action="store_true", help="profile the backtest on the server (HQG_PROFILE)"
@@ -176,6 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=600.0,
         help="seconds to wait for the result (default: 600)",
     )
+    run.add_argument("--config", help="path to a json configuration file")
     run.set_defaults(func=cmd_run)
 
     health = subparsers.add_parser("health", help="check that the service is reachable")

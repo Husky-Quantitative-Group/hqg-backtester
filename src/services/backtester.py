@@ -179,8 +179,6 @@ class Backtester:
 
     def _add_noise(self, prices: Dict[str, float], symbols: List[str], noise: Noise) -> Dict[str, float]:
         """ Returns new price data with noise added according to the input distribution. """
-        new_prices = {}
-
         try:
             noise_range = sys.modules["config"].noise_range
         except:
@@ -189,16 +187,15 @@ class Backtester:
         for symbol in symbols:
             match (noise):
                 case Noise.UNIFORM:
-                    price = prices[symbol] + random.uniform(-prices[symbol]*noise_range, prices[symbol]*noise_range)
+                    prices[symbol] += random.uniform(-prices[symbol]*noise_range, prices[symbol]*noise_range)
                 case Noise.NORMAL:
-                    price = prices[symbol] + random.normalvariate(mu=0, sigma=prices[symbol]*noise_range)
+                    prices[symbol] += random.normalvariate(mu=0, sigma=prices[symbol]*noise_range)
 
-            new_prices[symbol] = price
+            # to prevent division by zero errors and negative prices
+            if prices[symbol] <= 0:
+                prices[symbol] = 1e-100 
 
-            if price is None or price < 0:
-                new_prices[symbol] = prices[symbol]
-
-        return new_prices
+        return prices
 
     def _layer_noise_on_slice(self, slice_obj: Slice, universe: list, noise: Noise) -> Slice:
         """ Creates a new slice with the same price data + some noise as slice_obj """
@@ -208,11 +205,11 @@ class Backtester:
         close = self._get_close(slice_obj, universe)
         volume = self._get_volume(slice_obj, universe)
 
-        open = self._add_noise(open, universe, noise)
-        high =self._add_noise(high, universe, noise)
-        low = self._add_noise(low, universe, noise)
-        close = self._add_noise(close, universe, noise)
-        volume = self._add_noise(volume, universe, noise)
+        self._add_noise(open, universe, noise)
+        self._add_noise(high, universe, noise)
+        self._add_noise(low, universe, noise)
+        self._add_noise(close, universe, noise)
+        self._add_noise(volume, universe, noise)
 
         bars = {}
         for s in universe:
