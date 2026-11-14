@@ -50,7 +50,7 @@ Options for `hqg run`:
 | `--capital` | starting capital (default 10000) |
 | `--name` | name for the run (default: the file name) |
 | `--verbose` | also print the strategy's `self.log()` output |
-| `--json` | save the raw result JSON to `~/.hqg/logs` & equity graph to `~/.hqg/graphs/` |
+| `--graph` | save the raw result JSON to `~/.hqg/logs`; save equity, portfolio allocation, and weight graphs to `~/.hqg/graphs/` |
 | `--timeout` | seconds to wait for the result (default 60) |
 | `--profile` | profile your backtest |
 | `--config` | the path to a config file for this backtest. Can have CLI flags and/or config_parameters for the backtester |
