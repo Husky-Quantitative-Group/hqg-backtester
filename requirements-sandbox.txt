@@ -1,7 +1,8 @@
 pandas
 pydantic
 pydantic-settings
-hqg-algorithms @ https://github.com/Husky-Quantitative-Group/hqg-algorithms/archive/6764a95a86db7862324a765ee47b961944451980.tar.gz
+hqg-algorithms>=1.0.0
+hqg-datafeed>=0.1.0
 cvxpy
 numpy
 scikit-learn
