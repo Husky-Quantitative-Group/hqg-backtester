@@ -1,0 +1,14 @@
+{
+    "hi": 0.4,
+    "bool": true,
+    "string": "Any entries not matching the name of a flag are automatically ignored",
+    "capital": 1000000,
+    "verbose": true,
+    "start": "2023-01-01",
+    "end": "2026-01-01",
+    "params": {
+        "add_random_noise": false,
+        "slippage": true,
+        "noise_range": 0.01
+    }
+}

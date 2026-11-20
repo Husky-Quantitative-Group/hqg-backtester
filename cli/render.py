@@ -19,6 +19,31 @@ _GAP = 3
 _COL_W = _LEFT_INDENT + _LABEL_W + _VALUE_W
 _HEADER_INDENT = 2
 
+_CASH_COLOR = "#c3c2b7"
+_GRAPH_TITLE_COLOR = "#0b0b0b"
+_WHITE = "#fcfcfb"
+_LIGHT_GRAY = "#e5e4e0af"
+_GRAY= "#c3c2b7"
+_DARK_GRAY = "#52514e"
+_EQUITY_CURVE_COLOR = "#2a78d6"
+
+
+def _allocation_colors(labels: list[str]) -> list:
+    cmap = plt.get_cmap("tab20")
+    colors = []
+    asset_index = 0
+    for label in labels:
+        if label == "Cash":
+            colors.append(_CASH_COLOR)
+        else:
+            colors.append(cmap(asset_index % cmap.N))
+            asset_index += 1
+    return colors
+
+
+def _ordered_allocation_symbols(symbols) -> list[str]:
+    return sorted(set(symbols), key=lambda symbol: (symbol == "Cash", symbol))
+
 
 def _pct(value: float | None, signed: bool = True, places: int = 1) -> str:
     """Format a decimal fraction as a percentage."""
@@ -136,20 +161,178 @@ def save_equity_graph(candles: list[dict], out: Path) -> None:
     times = [datetime.fromtimestamp(c["time"]) for c in candles]
     closes = [c["close"] for c in candles]
 
-    fig, ax = plt.subplots(figsize=(10, 4), facecolor="#fcfcfb")
-    ax.set_facecolor("#fcfcfb")
-    ax.plot(times, closes, color="#2a78d6", linewidth=0.5)
-    ax.set_title("Equity", loc="left", color="#0b0b0b")
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor=_WHITE)
+    ax.set_facecolor(_WHITE)
+    ax.plot(times, closes, color=_EQUITY_CURVE_COLOR, linewidth=0.5)
+    ax.set_title("Equity", loc="left", color=_GRAPH_TITLE_COLOR)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:,.0f}"))
-    ax.grid(axis="y", color="#e5e4e0", linewidth=0.8)
-    ax.tick_params(colors="#52514e", length=0)
+    ax.grid(axis="y", color=_LIGHT_GRAY, linewidth=0.8)
+    ax.tick_params(colors=_DARK_GRAY, length=0)
     for side in ("top", "right", "left"):
         ax.spines[side].set_visible(False)
-    ax.spines["bottom"].set_color("#c3c2b7")
+    ax.spines["bottom"].set_color(_GRAY)
     fig.autofmt_xdate()
     fig.tight_layout()
-    fig.savefig(out, dpi=1500)
+    fig.savefig(out, dpi=150)
     #plt.show()
+    plt.close(fig)
+
+def save_portfolio_allocation_graph(weights: list[dict], out: Path) -> None:
+    if not weights:
+        return
+
+    times = [datetime.fromtimestamp(snapshot["time"]) for snapshot in weights]
+
+    symbols = _ordered_allocation_symbols(
+        symbol
+        for snapshot in weights
+        for symbol in snapshot.get("weights", {})
+    )
+    symbols = [symbol for symbol in symbols if symbol != "Cash"]
+
+    series = [
+        [snapshot.get("weights", {}).get(symbol, 0.0) for snapshot in weights]
+        for symbol in symbols
+    ]
+
+    cash = [
+        max(0.0, 1.0 - sum(snapshot.get("weights", {}).values()))
+        for snapshot in weights
+    ]
+    symbols.append("Cash")
+    series.append(cash)
+
+    colors = _allocation_colors(symbols)
+
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor=_WHITE)
+    ax.set_facecolor(_WHITE)
+    ax.stackplot(times, *series, labels=symbols, colors=colors, linewidth=0)
+    ax.set_title("Portfolio Allocation", loc="left", color=_GRAPH_TITLE_COLOR)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v * 100:.0f}%"))
+    ax.set_ylim(0, 1)
+    ax.grid(axis="y", color=_LIGHT_GRAY, linewidth=0.8)
+    ax.tick_params(colors=_DARK_GRAY, length=0)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color(_GRAY)
+    ax.legend(
+        loc="upper left",
+        bbox_to_anchor=(1.0, 1.0),
+        frameon=False,
+        fontsize="small",
+    )
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+
+
+def _order_timestamp(order: dict) -> float:
+    value = order.get("timestamp")
+    if isinstance(value, datetime):
+        return value.timestamp()
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value)
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    return datetime.fromisoformat(text).timestamp()
+
+
+def _build_allocation_series(
+    candles: list[dict],
+    orders: list[dict],
+    starting_equity: float,
+) -> tuple[list[dict], list[str]]:
+    timeline = [int(candle["time"]) for candle in candles]
+    snapshots: dict[int, dict[str, float]] = {}
+    tickers: set[str] = set()
+
+    holdings: dict[str, float] = {}
+    prices: dict[str, float] = {}
+    cash = float(starting_equity)
+
+    for order in orders:
+        direction = 1.0 if str(order["type"]).lower() == "buy" else -1.0
+        shares = direction * float(order["shares"])
+        ticker = str(order["ticker"])
+        price = float(order["price"])
+        tickers.add(ticker)
+
+        holdings[ticker] = holdings.get(ticker, 0.0) + shares
+        prices[ticker] = price
+        cash -= shares * price
+
+        values = {symbol: quantity * prices[symbol] for symbol, quantity in holdings.items()}
+        total = cash + sum(values.values())
+        snapshots[int(_order_timestamp(order))] = {
+            **{symbol: value / total for symbol, value in values.items()},
+            "Cash": cash / total,
+        }
+
+    tickers = _ordered_allocation_symbols(
+        {"Cash"} | tickers
+    )
+
+    data: list[dict] = []
+    weights = list(snapshots.items())
+    # Sets the portfolio's first weights to
+    # all cash with the timestamp of the first day
+    weights.insert(0, [weights[0][0], {"Cash": 1.0}])
+    index = 0
+    for time in timeline:
+        # increments index when the weights are old (weights[index][0] <= time)
+        if index < len(weights) - 1 and weights[index][0] <= time:
+            index += 1
+
+        data.append({
+            "time": time,
+            **{ticker: weights[index][1].get(ticker, 0.0) for ticker in tickers}
+        })
+
+    return data, tickers
+
+
+def save_weight_graph(
+    candles: list[dict],
+    orders: list[dict],
+    starting_equity: float,
+    out: Path,
+) -> None:
+    data, tickers = _build_allocation_series(candles, orders, starting_equity)
+    if not data or not tickers:
+        return
+
+    times = [datetime.fromtimestamp(point["time"]) for point in data]
+    series = [[point.get(key, 0.0) for point in data] for key in tickers]
+    colors = _allocation_colors(tickers)
+
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor=_WHITE)
+    ax.set_facecolor(_WHITE)
+    ax.stackplot(
+        times,
+        *series,
+        labels=tickers,
+        colors=colors,
+        linewidth=0,
+    )
+    ax.set_title("Weight Allocation", loc="left", color=_GRAPH_TITLE_COLOR)
+    ax.set_ylim(0, 1)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v * 100:.0f}%"))
+    ax.grid(axis="y", color=_LIGHT_GRAY, linewidth=0.8)
+    ax.tick_params(colors=_DARK_GRAY, length=0)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color(_GRAY)
+    ax.legend(
+        loc="upper left",
+        bbox_to_anchor=(1.0, 1.0),
+        frameon=False,
+        fontsize="small",
+    )
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
     plt.close(fig)
 
 
