@@ -240,6 +240,7 @@ def _build_allocation_series(
 ) -> tuple[list[dict], list[str]]:
     timeline = [int(candle["time"]) for candle in candles]
     snapshots: dict[int, dict[str, float]] = {}
+    tickers: set[str] = set()
 
     holdings: dict[str, float] = {}
     prices: dict[str, float] = {}
@@ -250,6 +251,7 @@ def _build_allocation_series(
         shares = direction * float(order["shares"])
         ticker = str(order["ticker"])
         price = float(order["price"])
+        tickers.add(ticker)
 
         holdings[ticker] = holdings.get(ticker, 0.0) + shares
         prices[ticker] = price
@@ -262,21 +264,27 @@ def _build_allocation_series(
             "Cash": cash / total,
         }
 
-    keys = _ordered_allocation_symbols(
-        {"Cash"} | {key for point in snapshots.values() for key in point}
+    tickers = _ordered_allocation_symbols(
+        {"Cash"} | tickers
     )
 
     data: list[dict] = []
-    points = list(snapshots.items())
+    weights = list(tuple(snapshots.items()))
+    # Sets the portfolio's first weights to
+    # all cash with the timestamp of the first day
+    weights.insert(0, [weights[0][0], {"Cash": 1.0}])
     index = 0
-    active = {"Cash": 1.0}
     for time in timeline:
-        while index < len(points) and points[index][0] <= time:
-            active = points[index][1]
+        # increments index when the weights are old (weights[index][0] <= time)
+        if index < len(weights) - 1 and weights[index][0] <= time:
             index += 1
-        data.append({"time": time, **{key: active.get(key, 0.0) for key in keys}})
 
-    return data, keys
+        data.append({
+            "time": time,
+            **{ticker: weights[index][1].get(ticker, 0.0) for ticker in tickers}
+        })
+
+    return data, tickers
 
 
 def save_weight_graph(
@@ -285,22 +293,21 @@ def save_weight_graph(
     starting_equity: float,
     out: Path,
 ) -> None:
-    data, keys = _build_allocation_series(candles, orders, starting_equity)
-    if not data or not keys:
+    data, tickers = _build_allocation_series(candles, orders, starting_equity)
+    if not data or not tickers:
         return
 
     times = [datetime.fromtimestamp(point["time"]) for point in data]
-    series = [[point.get(key, 0.0) for point in data] for key in keys]
-    colors = _allocation_colors(keys)
+    series = [[point.get(key, 0.0) for point in data] for key in tickers]
+    colors = _allocation_colors(tickers)
 
     fig, ax = plt.subplots(figsize=(10, 4), facecolor="#fcfcfb")
     ax.set_facecolor("#fcfcfb")
     ax.stackplot(
         times,
         *series,
-        labels=keys,
+        labels=tickers,
         colors=colors,
-        step="post",
         linewidth=0,
     )
     ax.set_title("Weight Allocation", loc="left", color="#0b0b0b")
