@@ -20,6 +20,12 @@ _COL_W = _LEFT_INDENT + _LABEL_W + _VALUE_W
 _HEADER_INDENT = 2
 
 _CASH_COLOR = "#c3c2b7"
+_GRAPH_TITLE_COLOR = "#0b0b0b"
+_WHITE = "#fcfcfb"
+_LIGHT_GRAY = "#e5e4e0af"
+_GRAY= "#c3c2b7"
+_DARK_GRAY = "#52514e"
+_EQUITY_CURVE_COLOR = "#2a78d6"
 
 
 def _allocation_colors(labels: list[str]) -> list:
@@ -155,16 +161,16 @@ def save_equity_graph(candles: list[dict], out: Path) -> None:
     times = [datetime.fromtimestamp(c["time"]) for c in candles]
     closes = [c["close"] for c in candles]
 
-    fig, ax = plt.subplots(figsize=(10, 4), facecolor="#fcfcfb")
-    ax.set_facecolor("#fcfcfb")
-    ax.plot(times, closes, color="#2a78d6", linewidth=0.5)
-    ax.set_title("Equity", loc="left", color="#0b0b0b")
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor=_WHITE)
+    ax.set_facecolor(_WHITE)
+    ax.plot(times, closes, color=_EQUITY_CURVE_COLOR, linewidth=0.5)
+    ax.set_title("Equity", loc="left", color=_GRAPH_TITLE_COLOR)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:,.0f}"))
-    ax.grid(axis="y", color="#e5e4e0", linewidth=0.8)
-    ax.tick_params(colors="#52514e", length=0)
+    ax.grid(axis="y", color=_LIGHT_GRAY, linewidth=0.8)
+    ax.tick_params(colors=_DARK_GRAY, length=0)
     for side in ("top", "right", "left"):
         ax.spines[side].set_visible(False)
-    ax.spines["bottom"].set_color("#c3c2b7")
+    ax.spines["bottom"].set_color(_GRAY)
     fig.autofmt_xdate()
     fig.tight_layout()
     fig.savefig(out, dpi=150)
@@ -198,17 +204,17 @@ def save_portfolio_allocation_graph(weights: list[dict], out: Path) -> None:
 
     colors = _allocation_colors(symbols)
 
-    fig, ax = plt.subplots(figsize=(10, 4), facecolor="#fcfcfb")
-    ax.set_facecolor("#fcfcfb")
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor=_WHITE)
+    ax.set_facecolor(_WHITE)
     ax.stackplot(times, *series, labels=symbols, colors=colors, linewidth=0)
-    ax.set_title("Portfolio Allocation", loc="left", color="#0b0b0b")
+    ax.set_title("Portfolio Allocation", loc="left", color=_GRAPH_TITLE_COLOR)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v * 100:.0f}%"))
     ax.set_ylim(0, 1)
-    ax.grid(axis="y", color="#e5e4e0cf", linewidth=0.8)
-    ax.tick_params(colors="#52514e", length=0)
+    ax.grid(axis="y", color=_LIGHT_GRAY, linewidth=0.8)
+    ax.tick_params(colors=_DARK_GRAY, length=0)
     for side in ("top", "right", "left"):
         ax.spines[side].set_visible(False)
-    ax.spines["bottom"].set_color("#c3c2b7")
+    ax.spines["bottom"].set_color(_GRAY)
     ax.legend(
         loc="upper left",
         bbox_to_anchor=(1.0, 1.0),
@@ -269,7 +275,7 @@ def _build_allocation_series(
     )
 
     data: list[dict] = []
-    weights = list(tuple(snapshots.items()))
+    weights = list(snapshots.items())
     # Sets the portfolio's first weights to
     # all cash with the timestamp of the first day
     weights.insert(0, [weights[0][0], {"Cash": 1.0}])
@@ -301,8 +307,8 @@ def save_weight_graph(
     series = [[point.get(key, 0.0) for point in data] for key in tickers]
     colors = _allocation_colors(tickers)
 
-    fig, ax = plt.subplots(figsize=(10, 4), facecolor="#fcfcfb")
-    ax.set_facecolor("#fcfcfb")
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor=_WHITE)
+    ax.set_facecolor(_WHITE)
     ax.stackplot(
         times,
         *series,
@@ -310,14 +316,14 @@ def save_weight_graph(
         colors=colors,
         linewidth=0,
     )
-    ax.set_title("Weight Allocation", loc="left", color="#0b0b0b")
+    ax.set_title("Weight Allocation", loc="left", color=_GRAPH_TITLE_COLOR)
     ax.set_ylim(0, 1)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v * 100:.0f}%"))
-    ax.grid(axis="y", color="#e5e4e0", linewidth=0.8)
-    ax.tick_params(colors="#52514e", length=0)
+    ax.grid(axis="y", color=_LIGHT_GRAY, linewidth=0.8)
+    ax.tick_params(colors=_DARK_GRAY, length=0)
     for side in ("top", "right", "left"):
         ax.spines[side].set_visible(False)
-    ax.spines["bottom"].set_color("#c3c2b7")
+    ax.spines["bottom"].set_color(_GRAY)
     ax.legend(
         loc="upper left",
         bbox_to_anchor=(1.0, 1.0),
