@@ -236,8 +236,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run", help="run a backtest on a strategy file")
     run.add_argument("strategy", help="path to a Python file defining a Strategy subclass")
-    run.add_argument("--start", required=False, metavar="YYYY-MM-DD", help="backtest start date")
-    run.add_argument("--end", required=False, metavar="YYYY-MM-DD", help="backtest end date")
+    run.add_argument("--start", metavar="YYYY-MM-DD", help="backtest start date")
+    run.add_argument("--end", metavar="YYYY-MM-DD", help="backtest end date")
     run.add_argument(
         "--capital", type=float, default=10000.0, help="starting capital (default: 10000)"
     )
