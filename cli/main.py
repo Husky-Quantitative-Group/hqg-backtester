@@ -70,6 +70,10 @@ def _parse_config_file(path: Path) -> dict:
 
 def build_payload(args: argparse.Namespace, source: str, name: str, backtest_params: dict) -> dict[str, Any]:
     capital = args.capital # this has a default value
+    if args.start is None:
+        args.start = "2000-01-01"
+    if args.end is None:
+        args.end = "2026-01-01"
     start = _parse_date(args.start, "--start")
     end = _parse_date(args.end, "--end")
 
@@ -91,7 +95,10 @@ def build_payload(args: argparse.Namespace, source: str, name: str, backtest_par
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    config_path = Path(args.config)
+    if args.config:
+        config_path = Path(args.config)
+    else:
+        config_path = None
     config = _parse_config_file(config_path)
     backtest_params = None
 
