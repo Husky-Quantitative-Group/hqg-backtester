@@ -111,7 +111,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             case "end":
                 args.end = str(config.get("end"))
             case "name":
-                args.profile = str(config.get("name"))
+                args.name = str(config.get("name"))
             case "capital":
                 args.capital = float(config.get("capital"))
             case "profile":

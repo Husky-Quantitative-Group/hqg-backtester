@@ -185,6 +185,7 @@ class Backtester:
             noise_range = 0.05
 
         for symbol in symbols:
+            original_price = prices[symbol]
             match (noise):
                 case Noise.UNIFORM:
                     prices[symbol] += random.uniform(-prices[symbol]*noise_range, prices[symbol]*noise_range)
@@ -193,7 +194,7 @@ class Backtester:
 
             # to prevent division by zero errors and negative prices
             if prices[symbol] <= 0:
-                prices[symbol] = 1e-100 
+                prices[symbol] = original_price
 
         return prices
 
