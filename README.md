@@ -206,7 +206,7 @@ The strategy should return target portfolio weights (`sum(weights) <= 1.0`).
 
 ## Security / Sandbox Model
 
-- AST static analysis (`src/execution/analysis.py`)
+- AST static analysis (`hqg_sdk.validation.validate_strategy`)
 - Import/module allowlist + builtin/attribute blocklists
 - Docker sandbox execution with:
   - `--network=none`
