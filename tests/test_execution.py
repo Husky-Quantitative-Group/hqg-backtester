@@ -9,7 +9,7 @@ import httpx
 from datetime import datetime
 from pathlib import Path
 from src.models.request import BacktestRequest
-from src.execution.analysis import StaticAnalyzer
+from hqg_sdk.validation import validate_strategy
 from src.api.handlers import BacktestHandler
 from src.api.server import app
 from tests.test_strategies.pytest_strategies import TestStrategies
@@ -59,21 +59,17 @@ class TestCorrectness:
     """
 
     @pytest.mark.unit
-    def test_static_analyzer_requires_strategy_class(self):
-        request = make_request(TestStrategies.MALICIOUS_NO_STRATEGY)
-        StaticAnalyzer.analyze(request)
+    def test_validation_requires_strategy_class(self):
+        errors = validate_strategy(TestStrategies.MALICIOUS_NO_STRATEGY)
 
-        assert not request.errors.is_empty()
-        assert any("Strategy" in e for e in request.errors.errors)
+        assert errors
+        assert any("Strategy" in e for e in errors)
 
     @pytest.mark.unit
-    def test_static_analyzer_validates_allowed_nodes(self):
-        request = make_request(TestStrategies.VALID_BUYHOLD)
-        result = StaticAnalyzer.analyze(request)
+    def test_validation_validates_allowed_nodes(self):
+        errors = validate_strategy(TestStrategies.VALID_BUYHOLD)
 
-        assert (
-            result.errors.is_empty()
-        ), f"Valid strategy failed: {result.errors.errors}"
+        assert errors == [], f"Valid strategy failed: {errors}"
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -339,61 +335,56 @@ class TestSecurity:
     Verify malicious requests are rejected at the appropriate pipeline stage.
     """
 
-    def test_blocks_os_import_at_static_analyzer(self):
+    def test_blocks_os_import_at_validation(self):
         """
         Import os module for system command execution.
-        Expected failure: StaticAnalyzer._validate_imports
+        Expected failure: hqg_sdk.validation.validate_strategy
         """
-        request = make_request(TestStrategies.MALICIOUS_OS_IMPORT)
-        StaticAnalyzer.analyze(request)
+        errors = validate_strategy(TestStrategies.MALICIOUS_OS_IMPORT)
 
-        assert not request.errors.is_empty(), "os import should be blocked"
-        assert any("Import" in e and "not allowed" in e for e in request.errors.errors)
+        assert errors, "os import should be blocked"
+        assert any("Import" in e and "not allowed" in e for e in errors)
 
-    def test_blocks_subprocess_import_at_static_analyzer(self):
+    def test_blocks_subprocess_import_at_validation(self):
         """
         Import subprocess for arbitrary command execution.
-        Expected failure: StaticAnalyzer._validate_imports
+        Expected failure: hqg_sdk.validation.validate_strategy
         """
-        request = make_request(TestStrategies.MALICIOUS_SUBPROCESS_IMPORT)
-        StaticAnalyzer.analyze(request)
+        errors = validate_strategy(TestStrategies.MALICIOUS_SUBPROCESS_IMPORT)
 
-        assert not request.errors.is_empty(), "subprocess import should be blocked"
-        assert any("Import" in e and "not allowed" in e for e in request.errors.errors)
+        assert errors, "subprocess import should be blocked"
+        assert any("Import" in e and "not allowed" in e for e in errors)
 
-    def test_blocks_eval_at_static_analyzer(self):
+    def test_blocks_eval_at_validation(self):
         """
         Use eval() to execute arbitrary code strings.
-        Expected failure: StaticAnalyzer._validate_builtins
+        Expected failure: hqg_sdk.validation.validate_strategy
         """
-        request = make_request(TestStrategies.MALICIOUS_EVAL)
-        StaticAnalyzer.analyze(request)
+        errors = validate_strategy(TestStrategies.MALICIOUS_EVAL)
 
-        assert not request.errors.is_empty(), "eval() should be blocked"
-        assert any("eval" in e and "forbidden" in e for e in request.errors.errors)
+        assert errors, "eval() should be blocked"
+        assert any("eval" in e and "forbidden" in e for e in errors)
 
-    def test_blocks_open_at_static_analyzer(self):
+    def test_blocks_open_at_validation(self):
         """
         Use open() to read sensitive files.
-        Expected failure: StaticAnalyzer._validate_builtins
+        Expected failure: hqg_sdk.validation.validate_strategy
         """
-        request = make_request(TestStrategies.MALICIOUS_OPEN_FILE)
-        StaticAnalyzer.analyze(request)
+        errors = validate_strategy(TestStrategies.MALICIOUS_OPEN_FILE)
 
-        assert not request.errors.is_empty(), "open() should be blocked"
-        assert any("open" in e and "forbidden" in e for e in request.errors.errors)
+        assert errors, "open() should be blocked"
+        assert any("open" in e and "forbidden" in e for e in errors)
 
-    def test_blocks_globals_access_at_static_analyzer(self):
+    def test_blocks_globals_access_at_validation(self):
         """
         Access __globals__ to escape sandbox.
-        Expected failure: StaticAnalyzer._validate_attributes
+        Expected failure: hqg_sdk.validation.validate_strategy
         """
-        request = make_request(TestStrategies.MALICIOUS_GLOBALS_ACCESS)
-        StaticAnalyzer.analyze(request)
+        errors = validate_strategy(TestStrategies.MALICIOUS_GLOBALS_ACCESS)
 
-        assert not request.errors.is_empty(), "__globals__ access should be blocked"
+        assert errors, "__globals__ access should be blocked"
         assert any(
-            "__globals__" in e and "forbidden" in e for e in request.errors.errors
+            "__globals__" in e and "forbidden" in e for e in errors
         )
 
 @pytest.mark.integration

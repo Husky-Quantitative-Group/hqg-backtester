@@ -3,14 +3,13 @@ import logging
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any
-from hqg_algorithms import extract_metadata
+from hqg_sdk.validation import get_strategy_metadata, validate_strategy
 
 from ..models.request import BacktestRequest, ValidationException, ExecutionException
 from ..services.data_provider.datafeed_provider_alt import DataFeedAltProvider
 from ..services.data_provider.datafeed_provider_securities import DataFeedSecuritiesProvider
 from .executor import Executor, ExecutionPayload, RawExecutionResult
 from .output_validator import OutputValidator
-from .analysis import StaticAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +47,13 @@ class Orchestrator:
         async with self._semaphore:
             try:
                 # Analyze Code
-                StaticAnalyzer.analyze(request)
+                for error in validate_strategy(request.strategy_code):
+                    request.errors.add(error)
                 if not request.errors.is_empty():
                     raise ValidationException(request.errors)
- 
+
                 # Parse strategy code to extract universe + cadence
-                strategy_metadata = extract_metadata(request.strategy_code)
+                strategy_metadata = get_strategy_metadata(request.strategy_code)
                 universe, cadence = strategy_metadata.universe, strategy_metadata.cadence
                 alt_data = strategy_metadata.alt_data
 
