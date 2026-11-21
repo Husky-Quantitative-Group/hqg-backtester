@@ -10,7 +10,7 @@ hqg-backtester/
 │   ├── models/               # Pydantic models (requests/responses)
 │   ├── services/             # Business logic layer
 │   ├── strategies/           # Cached Strategy code
-│   └── utils/                # Utilities (metrics, validators, etc.)
+│   └── utils/                # Utilities (metrics, etc.)  
 ├── tests/                    # Unit and integration tests
 ├── docker-compose.yml
 ├── requirements.txt
@@ -62,7 +62,6 @@ Pydantic models for API contracts.
 
 - **`metrics.py`** - Performance calculation functions
 - **`strategy_loader.py`** - Strategy code loading/validation
-- **`validators.py`** - Input validation helpers
 
 ## `/tests/` - Test Suite
 
