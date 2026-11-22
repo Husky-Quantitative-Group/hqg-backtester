@@ -2,6 +2,7 @@ pandas
 pydantic
 pydantic-settings
 hqg-algorithms>=1.0.0
+hqg-datafeed>=0.1.0
 cvxpy
 numpy
 scikit-learn
