@@ -25,7 +25,7 @@ from .render import (
     save_weight_graph,
 )
 from .settings import HQG_HOME, settings
-from .preprocessing import prepend_imports
+from .preprocessing import inline_imports
 
 
 def NewClient() -> BacktestClient:
@@ -39,7 +39,7 @@ def read_strategy(path: Path) -> str:
         raise ValueError(f"{path} is a directory; point at a strategy file.")
     try:
         src_code = path.read_text(encoding="utf-8")
-        return prepend_imports(path, src_code)
+        return inline_imports(path, src_code)
     except OSError as exc:
         raise ValueError(f"Could not read {path}: {exc}") from exc
 
