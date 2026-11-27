@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 import time
@@ -25,6 +26,35 @@ from .render import (
     save_weight_graph,
 )
 from .settings import HQG_HOME, settings
+
+from src.models.request import BacktestRequest
+
+
+def make_request(
+    strategy_code: str,
+    start_date: datetime = datetime(2023, 1, 1),
+    end_date: datetime = datetime(2024, 1, 1),
+    initial_capital: float = 10000.0,
+    commission: float = 0.001,
+    slippage: float = 0.001,
+    name: str = "Dashboard Backtest",
+    config: dict = None
+) -> BacktestRequest:
+    """
+    Simulate a real request from the dashboard.
+
+    This mirrors what the frontend would send to /api/v1/backtest.
+    """
+    return BacktestRequest(
+        strategy_code=strategy_code,
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
+        initial_capital=initial_capital,
+        commission=commission,
+        slippage=slippage,
+        config_params=config,
+    )
 
 
 def NewClient() -> BacktestClient:
@@ -134,36 +164,40 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     payload = build_payload(args, source, name, backtest_params)
 
-    client = NewClient()
-    client.health()
-    job_id = client.submit(payload)
-    print(f"  job {job_id}", file=sys.stderr)
+    from src.api.handlers import BacktestHandler
+
+    handler = BacktestHandler()
 
     started = time.monotonic()
+
     try:
-        record = client.wait_for_result(
-            job_id,
-            timeout=args.timeout,
-            on_status=lambda status: print(f"  {status.lower()}", file=sys.stderr),
+        response = asyncio.run(
+            handler.run_backtest(
+                make_request(
+                    strategy_code=payload['strategy_code'],
+                    start_date=payload['start_date'],
+                    end_date=payload['end_date'],
+                    initial_capital=payload['initial_capital'],
+                    commission=0,
+                    slippage=0,
+                    name=payload['name'],
+                    config=payload['config_params'],
+                )
+            )
         )
     except KeyboardInterrupt:
-        outcome = client.cancel(job_id)
-        print(f"\n  interrupted; job {job_id} {outcome}", file=sys.stderr)
+        print("\n  interrupted", file=sys.stderr)
         return 130
 
     elapsed = time.monotonic() - started
 
-    if record.get("status") != "COMPLETED":
-        print(f"  {record.get('error') or 'did not complete'}", file=sys.stderr)
-        return 1
-
-    # Result is an optional BacktestResponse object from a JobRecord
-    result = record.get("result")
-    if not result:
+    if response is None:
         raise RuntimeError("The job completed but returned no result.")
 
+    result = response.model_dump(mode="json")
+
     summary = render_result(result, path.name, elapsed)
-    logs: list[str] = record.get("logs") or []
+    logs: list[str] = []
     candles = result.get("candles", [])
     orders = result.get("orders", [])
     weights = result.get("holding_weights", [])
